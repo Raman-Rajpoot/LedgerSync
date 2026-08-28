@@ -1,0 +1,652 @@
+/* ==========================================
+   PROFILE PAGE
+========================================== */
+
+.profile-page {
+  width: 100%;
+  min-height: 100%;
+  padding: 32px;
+  box-sizing: border-box;
+  background: #f8fafc;
+}
+
+
+/* ==========================================
+   HEADER
+========================================== */
+
+.profile-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+
+.profile-header h1 {
+  margin: 8px 0 6px;
+  font-size: 30px;
+  font-weight: 700;
+  color: #111827;
+}
+
+
+.profile-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+
+.profile-back {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  border: none;
+  background: transparent;
+
+  padding: 0;
+
+  color: #6b7280;
+
+  font-size: 14px;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+}
+
+
+.profile-back:hover {
+  color: #111827;
+}
+
+
+/* ==========================================
+   BUTTONS
+========================================== */
+
+.profile-edit-btn,
+.profile-save-btn,
+.profile-cancel-btn,
+.change-password-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+
+  border-radius: 8px;
+
+  padding: 11px 16px;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+}
+
+
+.profile-edit-btn {
+  border: 1px solid #e5e7eb;
+
+  background: white;
+
+  color: #374151;
+}
+
+
+.profile-edit-btn:hover {
+  background: #f9fafb;
+}
+
+
+.profile-actions {
+  display: flex;
+  gap: 10px;
+}
+
+
+.profile-cancel-btn {
+  border: 1px solid #e5e7eb;
+
+  background: white;
+
+  color: #374151;
+}
+
+
+.profile-cancel-btn:hover {
+  background: #f3f4f6;
+}
+
+
+.profile-save-btn {
+  border: none;
+
+  background: #111827;
+
+  color: white;
+}
+
+
+.profile-save-btn:hover {
+  background: #1f2937;
+}
+
+
+.profile-save-btn:disabled,
+.profile-cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+/* ==========================================
+   ALERTS
+========================================== */
+
+.profile-alert {
+  padding: 13px 16px;
+
+  border-radius: 8px;
+
+  margin-bottom: 20px;
+
+  font-size: 14px;
+}
+
+
+.profile-alert.error {
+  background: #fef2f2;
+
+  border: 1px solid #fecaca;
+
+  color: #b91c1c;
+}
+
+
+.profile-alert.success {
+  background: #f0fdf4;
+
+  border: 1px solid #bbf7d0;
+
+  color: #15803d;
+}
+
+
+/* ==========================================
+   CONTENT
+========================================== */
+
+.profile-content {
+  display: grid;
+
+  grid-template-columns: 280px 1fr;
+
+  gap: 20px;
+
+  max-width: 1100px;
+}
+
+
+/* ==========================================
+   CARD
+========================================== */
+
+.card {
+  background: white;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 12px;
+
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.03);
+
+  box-sizing: border-box;
+}
+
+
+/* ==========================================
+   PROFILE SUMMARY
+========================================== */
+
+.profile-summary {
+  padding: 30px 20px;
+
+  height: fit-content;
+
+  text-align: center;
+}
+
+
+.profile-avatar-large {
+  width: 82px;
+  height: 82px;
+
+  margin: 0 auto 16px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #111827;
+
+  color: white;
+
+  font-size: 30px;
+  font-weight: 700;
+}
+
+
+.profile-summary h2 {
+  margin: 0 0 5px;
+
+  color: #111827;
+
+  font-size: 20px;
+}
+
+
+.profile-summary > p {
+  margin: 0;
+
+  color: #6b7280;
+
+  font-size: 13px;
+
+  word-break: break-word;
+}
+
+
+.profile-role {
+  width: fit-content;
+
+  margin: 18px auto 0;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 7px;
+
+  padding: 7px 11px;
+
+  border-radius: 20px;
+
+  background: #f3f4f6;
+
+  color: #4b5563;
+
+  font-size: 12px;
+}
+
+
+/* ==========================================
+   DETAILS
+========================================== */
+
+.profile-details {
+  padding: 28px;
+}
+
+
+.section-title {
+  display: flex;
+
+  align-items: flex-start;
+
+  justify-content: space-between;
+
+  margin-bottom: 26px;
+
+  padding-bottom: 18px;
+
+  border-bottom: 1px solid #f0f0f0;
+}
+
+
+.section-title h2 {
+  margin: 0 0 5px;
+
+  color: #111827;
+
+  font-size: 18px;
+}
+
+
+.section-title p {
+  margin: 0;
+
+  color: #6b7280;
+
+  font-size: 13px;
+}
+
+
+.section-title > svg {
+  color: #9ca3af;
+
+  font-size: 20px;
+}
+
+
+/* ==========================================
+   GRID
+========================================== */
+
+.profile-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 24px 20px;
+}
+
+
+.profile-field label {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #374151;
+
+  font-size: 13px;
+
+  font-weight: 600;
+}
+
+
+/* ==========================================
+   DISPLAY VALUE
+========================================== */
+
+.profile-value {
+  min-height: 44px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 0 13px;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 8px;
+
+  box-sizing: border-box;
+
+  color: #374151;
+
+  font-size: 14px;
+}
+
+
+.profile-value svg {
+  flex-shrink: 0;
+
+  color: #9ca3af;
+
+  font-size: 16px;
+}
+
+
+.profile-value span {
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+
+/* ==========================================
+   INPUT
+========================================== */
+
+.input-wrapper {
+  height: 44px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 0 13px;
+
+  border: 1px solid #d1d5db;
+
+  border-radius: 8px;
+
+  background: white;
+
+  box-sizing: border-box;
+
+  transition: 0.2s;
+}
+
+
+.input-wrapper:focus-within {
+  border-color: #111827;
+
+  box-shadow:
+    0 0 0 3px rgba(17, 24, 39, 0.06);
+}
+
+
+.input-wrapper svg {
+  flex-shrink: 0;
+
+  color: #9ca3af;
+}
+
+
+.input-wrapper input {
+  width: 100%;
+
+  height: 100%;
+
+  border: none;
+
+  outline: none;
+
+  background: transparent;
+
+  color: #111827;
+
+  font-size: 14px;
+}
+
+
+.input-wrapper input::placeholder {
+  color: #9ca3af;
+}
+
+
+/* ==========================================
+   SECURITY
+========================================== */
+
+.profile-security {
+  grid-column: 2;
+
+  padding: 28px;
+}
+
+
+.security-row {
+  display: flex;
+
+  align-items: center;
+
+  gap: 15px;
+}
+
+
+.security-icon {
+  width: 44px;
+  height: 44px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 8px;
+
+  background: #f3f4f6;
+
+  color: #374151;
+}
+
+
+.security-text {
+  flex: 1;
+}
+
+
+.security-text h3 {
+  margin: 0 0 4px;
+
+  color: #111827;
+
+  font-size: 14px;
+}
+
+
+.security-text p {
+  margin: 0;
+
+  color: #6b7280;
+
+  font-size: 13px;
+}
+
+
+.change-password-btn {
+  border: 1px solid #e5e7eb;
+
+  background: white;
+
+  color: #374151;
+}
+
+
+.change-password-btn:hover {
+  background: #f9fafb;
+}
+
+
+/* ==========================================
+   LOADING
+========================================== */
+
+.profile-loading {
+  min-height: 400px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  justify-content: center;
+
+  color: #6b7280;
+}
+
+
+.profile-spinner {
+  width: 28px;
+  height: 28px;
+
+  margin-bottom: 12px;
+
+  border: 3px solid #e5e7eb;
+
+  border-top-color: #111827;
+
+  border-radius: 50%;
+
+  animation:
+    profile-spin 0.8s linear infinite;
+}
+
+
+@keyframes profile-spin {
+
+  to {
+    transform: rotate(360deg);
+  }
+
+}
+
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 900px) {
+
+  .profile-content {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-security {
+    grid-column: 1;
+  }
+
+}
+
+
+@media (max-width: 650px) {
+
+  .profile-page {
+    padding: 20px;
+  }
+
+
+  .profile-header {
+    align-items: flex-start;
+
+    flex-direction: column;
+
+    gap: 18px;
+  }
+
+
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+
+  .profile-details,
+  .profile-security {
+    padding: 20px;
+  }
+
+
+  .security-row {
+    align-items: flex-start;
+
+    flex-wrap: wrap;
+  }
+
+
+  .change-password-btn {
+    margin-left: 59px;
+  }
+
+}

@@ -1,0 +1,295 @@
+.activity-page {
+  width: 100%;
+}
+
+.activity-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.activity-header h1 {
+  margin: 0;
+  color: #211e2d;
+  font-size: 25px;
+}
+
+.activity-header p {
+  margin: 6px 0 0;
+  color: #8e8a99;
+  font-size: 10px;
+}
+
+.activity-refresh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border: 1px solid #e5e2eb;
+  border-radius: 7px;
+  background: white;
+  color: #6d45e8;
+  font-size: 8px;
+  cursor: pointer;
+}
+
+.activity-toolbar {
+  display: flex;
+  gap: 9px;
+  margin-bottom: 13px;
+}
+
+.activity-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid #e5e2eb;
+  border-radius: 7px;
+  background: white;
+}
+
+.activity-search svg {
+  color: #aaa5b3;
+  font-size: 13px;
+}
+
+.activity-search input {
+  width: 100%;
+  padding: 10px 0;
+  border: none;
+  outline: none;
+  color: #514c5b;
+  font-size: 8px;
+}
+
+.activity-toolbar select {
+  padding: 0 10px;
+  border: 1px solid #e5e2eb;
+  border-radius: 7px;
+  outline: none;
+  background: white;
+  color: #66616f;
+  font-size: 8px;
+}
+
+.activity-card {
+  overflow: hidden;
+  border: 1px solid #ebe9f0;
+  border-radius: 10px;
+  background: white;
+}
+
+.activity-table-header,
+.activity-row {
+  display: grid;
+  grid-template-columns: 2fr .8fr .9fr 1.1fr;
+  align-items: center;
+}
+
+.activity-table-header {
+  padding: 12px 15px;
+  border-bottom: 1px solid #ebe9f0;
+  background: #faf9fc;
+  color: #96919f;
+  font-size: 7px;
+  font-weight: 600;
+}
+
+.activity-row {
+  min-height: 65px;
+  padding: 0 15px;
+  border-bottom: 1px solid #f1eff4;
+}
+
+.activity-row:last-child {
+  border-bottom: none;
+}
+
+.activity-message {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.activity-channel-icon {
+  width: 31px;
+  height: 31px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: #eee9ff;
+  color: #6d45e8;
+  font-size: 13px;
+}
+
+.activity-channel-icon.whatsapp {
+  background: #eaf8f1;
+  color: #2aa56a;
+}
+
+.activity-channel-icon.sms {
+  background: #edf5ff;
+  color: #4c86d9;
+}
+
+.activity-message strong {
+  display: block;
+  max-width: 280px;
+  overflow: hidden;
+  color: #514c5b;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-message p {
+  margin: 3px 0;
+  color: #8f8999;
+  font-size: 7px;
+}
+
+.activity-message small {
+  display: block;
+  max-width: 280px;
+  overflow: hidden;
+  color: #aaa6b4;
+  font-size: 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-channel span {
+  color: #77717f;
+  font-size: 7px;
+  text-transform: capitalize;
+}
+
+.activity-status {
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 7px;
+  border-radius: 20px;
+  font-size: 6px;
+}
+
+.activity-status.sent,
+.activity-status.delivered,
+.activity-status.success {
+  background: #eaf8f1;
+  color: #2aa56a;
+}
+
+.activity-status.failed,
+.activity-status.error {
+  background: #fff0f0;
+  color: #d65b5b;
+}
+
+.activity-status.pending {
+  background: #fff8e8;
+  color: #c58b20;
+}
+
+.activity-date {
+  color: #8d8895;
+  font-size: 7px;
+}
+
+.activity-empty {
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #aaa5b3;
+}
+
+.activity-empty svg {
+  font-size: 25px;
+  margin-bottom: 8px;
+}
+
+.activity-empty h3 {
+  margin: 0;
+  color: #66616f;
+  font-size: 10px;
+}
+
+.activity-empty p {
+  max-width: 300px;
+  margin: 7px 0;
+  text-align: center;
+  font-size: 7px;
+  line-height: 1.5;
+}
+
+.activity-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  color: #9994a2;
+  font-size: 7px;
+}
+
+.activity-pagination div {
+  display: flex;
+  gap: 5px;
+}
+
+.activity-pagination button {
+  width: 27px;
+  height: 27px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e5e2eb;
+  border-radius: 6px;
+  background: white;
+  color: #6d45e8;
+  cursor: pointer;
+}
+
+.activity-pagination button:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 700px) {
+
+  .activity-toolbar {
+    flex-direction: column;
+  }
+
+  .activity-toolbar select {
+    padding: 9px;
+  }
+
+  .activity-table-header {
+    display: none;
+  }
+
+  .activity-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 13px;
+  }
+
+  .activity-channel,
+  .activity-date {
+    padding-left: 40px;
+  }
+
+  .activity-status {
+    margin-left: 40px;
+  }
+
+}

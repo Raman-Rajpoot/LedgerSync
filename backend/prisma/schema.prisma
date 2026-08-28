@@ -1,0 +1,234 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+datasource db {
+  provider = "mongodb"
+  url = env("DATABASE_URL")
+}
+
+model Organization {
+
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  name          String
+  email         String?
+  phone         String?
+  logo          String?
+
+  plan          String   @default("FREE")
+  status        String   @default("ACTIVE")
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  users             User[]
+  clients           Client[]
+  invoices          Invoice[]
+  integrations      Integration[]
+  templates         Template[]
+  escalationRules   EscalationRule[]
+}
+
+model User {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  email          String       @unique
+  passwordHash   String
+  fullName       String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String       @db.ObjectId
+}
+
+model Integration {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  provider       String
+  encryptedKey   String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String       @db.ObjectId
+}
+
+model Client {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  email          String
+  phone          String?
+  companyName    String
+  project        String?
+  customNotes    String?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String       @db.ObjectId
+  invoices       Invoice[]
+}
+
+model Invoice {
+
+  id             String @id @default(auto()) @map("_id") @db.ObjectId
+
+  invoiceNumber  String @unique
+  amount         Float
+  issueDate      DateTime @default(now())
+  dueDate        DateTime
+  status         InvoiceStatus @default(PENDING)
+  notes          String?
+  clientId       String @db.ObjectId
+  client         Client @relation(fields:[clientId], references:[id])
+
+  organizationId String @db.ObjectId
+  organization   Organization @relation(fields:[organizationId], references:[id])
+  payments       Payment[]
+  escalationLogs EscalationLog[]
+  reminderConfig ReminderConfig?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+
+model Payment {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  amountPaid  Float
+  method      String
+  paidAt      DateTime @default(now())
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  invoiceId   String   @db.ObjectId
+}
+
+model EscalationLog {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  invoice      Invoice  @relation(fields: [invoiceId], references: [id])
+  invoiceId    String   @db.ObjectId
+
+  channel      String
+  subject      String?
+  content      String
+
+  status       String
+  // SENT | FAILED
+
+  sentAt       DateTime @default(now())
+
+  response     String?
+}
+
+model ReminderConfig {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  invoice         Invoice @relation(fields:[invoiceId], references:[id])
+  invoiceId       String  @unique @db.ObjectId
+
+  enabled         Boolean @default(true)
+
+  pauseUntil      DateTime?
+
+  reminderLevel   Int      @default(0)
+
+  nextReminderAt  DateTime?
+
+  lastReminderAt  DateTime?
+
+  createdAt       DateTime @default(now())
+
+  updatedAt       DateTime @updatedAt
+}
+
+model Template {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  name           String
+  channel        Channel
+  stage          ReminderStage
+  subject        String?
+  content        String
+
+  organizationId String @db.ObjectId
+
+  isActive       Boolean @default(true)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+
+  escalationRules EscalationRule[]
+}
+
+enum ReminderStage {
+  BEFORE_DUE
+  DUE_TODAY
+  FIRST_REMINDER
+  SECOND_REMINDER
+  THIRD_REMINDER
+  FINAL_NOTICE
+  LEGAL_NOTICE
+}
+enum Channel {
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+model EscalationRule {
+
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  name            String
+  description     String?
+
+  stage           ReminderStage
+
+  // Days relative to due date
+  // -2 = 2 days before due
+  // 0 = Due date
+  // 3 = 3 days after due
+  daysOffset      Int
+
+  channel         Channel
+
+  templateId      String   @db.ObjectId
+  template        Template @relation(fields: [templateId], references: [id])
+
+  organizationId  String   @db.ObjectId
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
+  isActive        Boolean  @default(true)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// model Project {
+//   id             String       @id @default(auto()) @map("_id") @db.ObjectId
+
+//   name           String
+//   description    String?
+//   status         String       @default("ACTIVE")
+
+//   clientId       String       @db.ObjectId
+//   client         Client       @relation(fields: [clientId], references: [id])
+
+//   organizationId String       @db.ObjectId
+//   organization   Organization @relation(fields: [organizationId], references: [id])
+
+//   createdAt      DateTime     @default(now())
+//   updatedAt      DateTime     @updatedAt
+
+//   invoices       Invoice[]
+// }

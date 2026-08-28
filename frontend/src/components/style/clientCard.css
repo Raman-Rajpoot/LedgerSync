@@ -1,0 +1,73 @@
+.client-card {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr 2fr auto; 
+  align-items: center;
+  padding: 1.25em; 
+  background-color: rgba(255, 255, 255, 0.814);
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); /* Softer shadow */
+  transition: all 0.3s ease;
+  margin: 1em;
+}
+
+.client-card:hover {
+  border-color: #2dd4bf; /* Teal 400 */
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.client-info {
+  display: flex;
+  
+  align-items: center;
+  gap: 2em;
+}
+
+.client-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: #e4ece9e6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #648b69;
+}
+
+.client-name {
+  font-weight: 600;
+  color: #0f172a;
+  font-size: 1.1rem;
+   margin: 3px;
+  padding:0px;
+}
+
+.client-company {
+  color: #64748b;
+  font-size: 1rem;
+  margin: 0;
+}
+.client-mail{
+     color: #64748b;
+  font-size: 0.89rem;
+  margin: 0px;
+}
+.client-status {
+  padding: 0.8em;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.status-active {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.status-overdue {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}

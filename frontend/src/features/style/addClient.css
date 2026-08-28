@@ -1,0 +1,159 @@
+/* Background */
+.add-client-page {
+    min-height: 100vh;
+    background: #f4f7fb;
+    /* display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start; */
+    padding: 40px 20px;
+}
+
+/* Card */
+.client-card {
+    width: 90%;
+    /* max-wdth: 700px; */
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 35px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+/* Header */
+.card-header {
+    margin-bottom: 30px;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 20px;
+}
+
+.card-header h2 {
+    font-size: 30px;
+    color: #111827;
+    margin-bottom: 8px;
+}
+
+.card-header p {
+    color: #6b7280;
+    font-size: 15px;
+}
+
+/* Form */
+.client-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Form Group */
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+}
+
+/* Inputs */
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 15px;
+    font-family: inherit;
+    transition: all 0.25s ease;
+    background: #fff;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: #9ca3af;
+}
+
+/* Focus Effect */
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+/* Textarea */
+.form-group textarea {
+    resize: vertical;
+    min-height: 120px;
+}
+
+/* Buttons */
+.button-group {
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+/* Cancel Button */
+.cancel-btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 10px;
+    background: #f3f4f6;
+    color: #374151;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.cancel-btn:hover {
+    background: #e5e7eb;
+}
+
+/* Save Button */
+.save-btn {
+    padding: 12px 28px;
+    border: none;
+    border-radius: 10px;
+    background: #2563eb;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.save-btn:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+
+.save-btn:disabled {
+    background: #93c5fd;
+    cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+
+    .add-client-page {
+        padding: 20px;
+    }
+
+    .client-card {
+        padding: 25px;
+    }
+
+    .card-header h2 {
+        font-size: 24px;
+    }
+
+    .button-group {
+        flex-direction: column;
+    }
+
+    .button-group button {
+        width: 100%;
+    }
+}
