@@ -6,6 +6,7 @@ const getOrganizationId = (req) => req.user?.organizationId ?? req.query?.organi
 export const getAllClients = async (req, res) => {
     try {
         const organizationId = getOrganizationId(req);
+        console.log("req....")
         if (!organizationId) return res.status(400).json({ error: 'Organization ID is required' });
 
         const clients = await prisma.client.findMany({

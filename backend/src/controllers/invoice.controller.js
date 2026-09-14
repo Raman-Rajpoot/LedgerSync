@@ -1,4 +1,5 @@
 import { prisma } from "../db/db.js";
+import { createRemindersForInvoice } from "../services/reminder.service.js";
 
 
 // ==========================================
@@ -221,6 +222,8 @@ export const createInvoice = async (req, res) => {
         organizationId,
       },
     });
+
+    await createRemindersForInvoice(invoice);
 
     return res.status(201).json({
       success: true,

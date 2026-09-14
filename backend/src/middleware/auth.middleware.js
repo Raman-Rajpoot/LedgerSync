@@ -5,7 +5,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'CHANGE_THIS_SECRET';
 
 export const authenticateTenant = async (req, res, next) => {
   try {
+    console.log("auth middleware")
     const auth = req.headers.authorization;
+    console.log(auth);
     if (!auth) return res.status(401).json({ error: 'Missing Authorization header' });
 
     const parts = auth.split(' ');

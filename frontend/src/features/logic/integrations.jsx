@@ -22,6 +22,7 @@ function Integrations() {
 
   const [integrations, setIntegrations] = useState({
     email: {
+      id: null,
       connected: false,
       host: "",
       port: "587",
@@ -32,6 +33,7 @@ function Integrations() {
     },
 
     twilio: {
+      id: null,
       connected: false,
       accountSid: "",
       authToken: "",
@@ -43,22 +45,30 @@ function Integrations() {
   const [saving, setSaving] = useState("");
   const [testing, setTesting] = useState("");
 
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
+  /*
+   * Fetch integrations when component loads
+   */
   useEffect(() => {
-    fetchIntegrations();
-  }, []);
+    if (token) {
+      fetchIntegrations();
+    }
+  }, [token]);
 
+  /*
+   * Get all integrations
+   */
   const fetchIntegrations = async () => {
     try {
       setLoading(true);
 
-      const response = await integrationService.getAllIntegrations();
+      const response =
+        await integrationService.getAllIntegrations();
 
       if (!response.success) {
-        throw new Error("Failed to fetch integrations");
+        throw new Error(
+          response.message ||
+            "Failed to fetch integrations"
+        );
       }
 
       if (response.data) {
@@ -68,12 +78,18 @@ function Integrations() {
         }));
       }
     } catch (error) {
-      console.error("Integration fetch error:", error);
+      console.error(
+        "Integration fetch error:",
+        error
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  /*
+   * Update form fields
+   */
   const updateIntegration = (
     type,
     field,
@@ -89,73 +105,149 @@ function Integrations() {
     }));
   };
 
+  /*
+   * Save integration
+   */
   const saveIntegration = async (type) => {
-    try {
-      setSaving(type);
+  try {
+    setSaving(type);
 
-      const response = await integrationService.createIntegration({
-        type,
-        organizationId,
-        ...integrations[type],
-      });
+    let response;
 
-      if (!response.success) {
-        throw new Error(
-          "Failed to save integration"
+    if (type === "email") {
+      const integrationData = {
+        provider: "EMAIL",
+
+        config: {
+          host: integrations.email.host,
+          port: Number(integrations.email.port),
+          username: integrations.email.username,
+          password: integrations.email.password,
+          fromEmail: integrations.email.fromEmail,
+          fromName: integrations.email.fromName,
+        },
+      };
+
+      console.log("Email integration:", integrationData);
+
+      response =
+        await integrationService.saveEmailIntegration(
+          integrationData
         );
-      }
-
-      alert(
-        `${type.toUpperCase()} integration saved successfully`
-      );
-
-      await fetchIntegrations();
-    } catch (error) {
-      console.error(error);
-
-      alert(
-        `Failed to save ${type} integration`
-      );
-    } finally {
-      setSaving("");
     }
-  };
 
+    else if (type === "twilio") {
+      const integrationData = {
+        provider: "TWILIO",
+
+        config: {
+          accountSid:
+            integrations.twilio.accountSid,
+          authToken:
+            integrations.twilio.authToken,
+          phoneNumber:
+            integrations.twilio.phoneNumber,
+        },
+      };
+
+      console.log("Twilio integration:", integrationData);
+
+      response =
+        await integrationService.saveTwilioIntegration(
+          integrationData
+        );
+    }
+
+    console.log("res:", response);
+
+    if (!response?.success) {
+      throw new Error(
+        response?.message ||
+          "Failed to save integration"
+      );
+    }
+
+    alert(
+      `${type.toUpperCase()} integration saved successfully`
+    );
+
+    await fetchIntegrations();
+
+  } catch (error) {
+    console.error(
+      "Integration Failed!! Try again:",
+      error
+    );
+
+    alert(
+      error.message ||
+        `Failed to save ${type} integration`
+    );
+  } finally {
+    setSaving("");
+  }
+};
+
+  /*
+   * Test integration
+   */
   const testIntegration = async (type) => {
     try {
       setTesting(type);
 
-      const response = await integrationService.testIntegration({
-        type,
-        organizationId,
-        ...integrations[type],
-      });
+      const response =
+        await integrationService.testIntegration({
+          type,
+          organizationId,
+          ...integrations[type],
+        });
 
-    
       if (!response.success) {
         throw new Error(
           response.message ||
-          "Connection test failed"
+            "Connection test failed"
         );
       }
 
       alert(
         response.message ||
-        "Connection successful"
+          "Connection successful"
       );
     } catch (error) {
+      console.error(
+        "Integration test error:",
+        error
+      );
+
       alert(
         error.message ||
-        "Connection test failed"
+          "Connection test failed"
       );
     } finally {
       setTesting("");
     }
   };
 
+  /*
+   * Disconnect integration
+   *
+   * IMPORTANT:
+   * integrationService.deleteIntegration()
+   * expects an ID, not an object.
+   */
   const disconnectIntegration = async (
     type
   ) => {
+    const integration =
+      integrations[type];
+
+    if (!integration?.id) {
+      alert(
+        "Integration ID not found"
+      );
+      return;
+    }
+
     const confirmDisconnect =
       window.confirm(
         `Disconnect ${type} integration?`
@@ -166,15 +258,17 @@ function Integrations() {
     }
 
     try {
-      const response = await integrationService.deleteIntegration({
-        type,
-        organizationId,
-      });
+      setSaving(type);
 
+      const response =
+        await integrationService.deleteIntegration(
+          type
+        );
 
       if (!response.success) {
         throw new Error(
-          "Failed to disconnect"
+          response.message ||
+            "Failed to disconnect"
         );
       }
 
@@ -184,12 +278,35 @@ function Integrations() {
         `${type.toUpperCase()} disconnected`
       );
     } catch (error) {
-      alert(
-        "Failed to disconnect integration"
+      console.error(
+        "Disconnect integration error:",
+        error
       );
+
+      alert(
+        error.message ||
+          "Failed to disconnect integration"
+      );
+    } finally {
+      setSaving("");
     }
   };
 
+  /*
+   * Authentication check
+   */
+  if (!token) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+      />
+    );
+  }
+
+  /*
+   * Loading
+   */
   if (loading) {
     return (
       <div className="integration-loading">
@@ -202,31 +319,30 @@ function Integrations() {
   return (
     <div className="integrations-page">
 
-      {/* HEADER */}
+      {/* ================= HEADER ================= */}
 
       <div className="integrations-header">
-
         <div>
           <h1>Integrations</h1>
 
           <p>
-            Connect the services LedgerSync uses
-            to communicate with your clients.
+            Connect the services LedgerSync
+            uses to communicate with your
+            clients.
           </p>
         </div>
 
         <button
           className="refresh-integrations"
           onClick={fetchIntegrations}
+          disabled={loading}
         >
           <FiRefreshCw />
           Refresh
         </button>
-
       </div>
 
-
-      {/* EMAIL */}
+      {/* ================= EMAIL ================= */}
 
       <div className="integration-card">
 
@@ -242,12 +358,12 @@ function Integrations() {
               <h2>Email / SMTP</h2>
 
               <p>
-                Send invoice reminders through email.
+                Send invoice reminders
+                through email.
               </p>
             </div>
 
           </div>
-
 
           <div
             className={
@@ -256,7 +372,6 @@ function Integrations() {
                 : "integration-status disconnected"
             }
           >
-
             {integrations.email.connected ? (
               <>
                 <FiCheckCircle />
@@ -268,20 +383,21 @@ function Integrations() {
                 Not Connected
               </>
             )}
-
           </div>
 
         </div>
 
-
         <div className="integration-form">
 
-          <div className="integration-field">
+          {/* SMTP HOST */}
 
+          <div className="integration-field">
             <label>SMTP Host</label>
 
             <input
-              value={integrations.email.host}
+              value={
+                integrations.email.host
+              }
               onChange={(e) =>
                 updateIntegration(
                   "email",
@@ -291,16 +407,17 @@ function Integrations() {
               }
               placeholder="smtp.gmail.com"
             />
-
           </div>
 
+          {/* SMTP PORT */}
 
           <div className="integration-field">
-
             <label>SMTP Port</label>
 
             <input
-              value={integrations.email.port}
+              value={
+                integrations.email.port
+              }
               onChange={(e) =>
                 updateIntegration(
                   "email",
@@ -310,13 +427,14 @@ function Integrations() {
               }
               placeholder="587"
             />
-
           </div>
 
+          {/* USERNAME */}
 
           <div className="integration-field">
-
-            <label>Username / Email</label>
+            <label>
+              Username / Email
+            </label>
 
             <input
               value={
@@ -331,13 +449,14 @@ function Integrations() {
               }
               placeholder="your@email.com"
             />
-
           </div>
 
+          {/* PASSWORD */}
 
           <div className="integration-field">
-
-            <label>Password / App Password</label>
+            <label>
+              Password / App Password
+            </label>
 
             <input
               type="password"
@@ -353,12 +472,11 @@ function Integrations() {
               }
               placeholder="App password"
             />
-
           </div>
 
+          {/* FROM EMAIL */}
 
           <div className="integration-field">
-
             <label>From Email</label>
 
             <input
@@ -374,12 +492,11 @@ function Integrations() {
               }
               placeholder="billing@company.com"
             />
-
           </div>
 
+          {/* FROM NAME */}
 
           <div className="integration-field">
-
             <label>From Name</label>
 
             <input
@@ -395,11 +512,11 @@ function Integrations() {
               }
               placeholder="LedgerSync"
             />
-
           </div>
 
         </div>
 
+        {/* EMAIL ACTIONS */}
 
         <div className="integration-actions">
 
@@ -407,7 +524,12 @@ function Integrations() {
             <button
               className="disconnect-btn"
               onClick={() =>
-                disconnectIntegration("email")
+                disconnectIntegration(
+                  "email"
+                )
+              }
+              disabled={
+                saving === "email"
               }
             >
               Disconnect
@@ -419,7 +541,9 @@ function Integrations() {
             onClick={() =>
               testIntegration("email")
             }
-            disabled={testing === "email"}
+            disabled={
+              testing === "email"
+            }
           >
             <FiCheckCircle />
 
@@ -433,7 +557,9 @@ function Integrations() {
             onClick={() =>
               saveIntegration("email")
             }
-            disabled={saving === "email"}
+            disabled={
+              saving === "email"
+            }
           >
             <FiSave />
 
@@ -446,8 +572,7 @@ function Integrations() {
 
       </div>
 
-
-      {/* TWILIO */}
+      {/* ================= TWILIO ================= */}
 
       <div className="integration-card">
 
@@ -463,12 +588,12 @@ function Integrations() {
               <h2>Twilio</h2>
 
               <p>
-                Send SMS and WhatsApp reminders.
+                Send SMS and WhatsApp
+                reminders.
               </p>
             </div>
 
           </div>
-
 
           <div
             className={
@@ -477,7 +602,6 @@ function Integrations() {
                 : "integration-status disconnected"
             }
           >
-
             {integrations.twilio.connected ? (
               <>
                 <FiCheckCircle />
@@ -489,21 +613,21 @@ function Integrations() {
                 Not Connected
               </>
             )}
-
           </div>
 
         </div>
 
-
         <div className="integration-form">
 
-          <div className="integration-field full">
+          {/* ACCOUNT SID */}
 
+          <div className="integration-field full">
             <label>Account SID</label>
 
             <input
               value={
-                integrations.twilio.accountSid
+                integrations.twilio
+                  .accountSid
               }
               onChange={(e) =>
                 updateIntegration(
@@ -514,18 +638,18 @@ function Integrations() {
               }
               placeholder="ACxxxxxxxxxxxxxxxx"
             />
-
           </div>
 
+          {/* AUTH TOKEN */}
 
           <div className="integration-field full">
-
             <label>Auth Token</label>
 
             <input
               type="password"
               value={
-                integrations.twilio.authToken
+                integrations.twilio
+                  .authToken
               }
               onChange={(e) =>
                 updateIntegration(
@@ -536,17 +660,19 @@ function Integrations() {
               }
               placeholder="Twilio auth token"
             />
-
           </div>
 
+          {/* PHONE NUMBER */}
 
           <div className="integration-field">
-
-            <label>Twilio Phone Number</label>
+            <label>
+              Twilio Phone Number
+            </label>
 
             <input
               value={
-                integrations.twilio.phoneNumber
+                integrations.twilio
+                  .phoneNumber
               }
               onChange={(e) =>
                 updateIntegration(
@@ -557,11 +683,11 @@ function Integrations() {
               }
               placeholder="+1234567890"
             />
-
           </div>
 
         </div>
 
+        {/* TWILIO ACTIONS */}
 
         <div className="integration-actions">
 
@@ -569,7 +695,12 @@ function Integrations() {
             <button
               className="disconnect-btn"
               onClick={() =>
-                disconnectIntegration("twilio")
+                disconnectIntegration(
+                  "twilio"
+                )
+              }
+              disabled={
+                saving === "twilio"
               }
             >
               Disconnect
@@ -581,7 +712,9 @@ function Integrations() {
             onClick={() =>
               testIntegration("twilio")
             }
-            disabled={testing === "twilio"}
+            disabled={
+              testing === "twilio"
+            }
           >
             <FiCheckCircle />
 
@@ -595,7 +728,9 @@ function Integrations() {
             onClick={() =>
               saveIntegration("twilio")
             }
-            disabled={saving === "twilio"}
+            disabled={
+              saving === "twilio"
+            }
           >
             <FiSave />
 
@@ -608,8 +743,7 @@ function Integrations() {
 
       </div>
 
-
-      {/* FLOW */}
+      {/* ================= FLOW ================= */}
 
       <div className="integration-info">
 
@@ -623,9 +757,10 @@ function Integrations() {
           </strong>
 
           <p>
-            LedgerSync uses these connected services
-            when the reminder scheduler sends an
-            email, SMS or WhatsApp message to a client.
+            LedgerSync uses these connected
+            services when the reminder
+            scheduler sends an email, SMS
+            or WhatsApp message to a client.
           </p>
         </div>
 

@@ -7,50 +7,73 @@ const API_BASE =
 function authHeaders() {
   const token = localStorage.getItem("token");
 
-  return token
-    ? { Authorization: `Bearer ${token}` }
-    : {};
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-// Get All Integrations
+function getOrganizationId() {
+  return (
+    localStorage.getItem("organizationId") ||
+    localStorage.getItem("organisationId") ||
+    ""
+  );
+}
+
 const getAllIntegrations = async () => {
+  const organizationId = getOrganizationId();
+
   const { data } = await axios.get(API_BASE, {
+    params: { organizationId },
     headers: authHeaders(),
   });
 
   return data;
 };
 
-// Save Email Integration
 const saveEmailIntegration = async (integrationData) => {
   const { data } = await axios.post(
     `${API_BASE}/email`,
-    integrationData,
     {
-      headers: authHeaders(),
-    }
+      ...integrationData,
+      organizationId: getOrganizationId(),
+    },
+    { headers: authHeaders() }
   );
 
   return data;
 };
 
-// Save Twilio Integration
 const saveTwilioIntegration = async (integrationData) => {
   const { data } = await axios.post(
     `${API_BASE}/twilio`,
-    integrationData,
     {
-      headers: authHeaders(),
-    }
+      ...integrationData,
+      organizationId: getOrganizationId(),
+    },
+    { headers: authHeaders() }
   );
 
   return data;
 };
 
-// Delete Integration
-const deleteIntegration = async (id) => {
-  const { data } = await axios.delete(API_BASE, {
-    params: { id },
+const testIntegration = async ({ type, ...payload }) => {
+  const endpoint =
+    type === "email" ? `${API_BASE}/email/test` : `${API_BASE}/twilio/test`;
+
+  const { data } = await axios.post(
+    endpoint,
+    {
+      ...payload,
+      organizationId: payload.organizationId || getOrganizationId(),
+    },
+    { headers: authHeaders() }
+  );
+
+  return data;
+};
+
+const deleteIntegration = async (type) => {
+  const { data } = await axios.delete(`${API_BASE}/${type}`, {
+    params: { organizationId: getOrganizationId() },
     headers: authHeaders(),
   });
 
@@ -61,5 +84,6 @@ export default {
   getAllIntegrations,
   saveEmailIntegration,
   saveTwilioIntegration,
+  testIntegration,
   deleteIntegration,
 };

@@ -472,7 +472,7 @@ export const getAllReminders = async (req, res) => {
 
     const [reminders, total] =
       await Promise.all([
-        prisma.reminderConfig.findMany({
+        prisma.reminder.findMany({
           where,
 
           include: {
@@ -490,11 +490,11 @@ export const getAllReminders = async (req, res) => {
           take: limitNumber,
 
           orderBy: {
-            nextReminderAt: "asc",
+            updatedAt: "asc",
           },
         }),
 
-        prisma.reminderConfig.count({
+        prisma.reminder.count({
           where,
         }),
       ]);
@@ -554,7 +554,7 @@ export const getReminder = async (
 
 
     const reminder =
-      await prisma.reminderConfig.findFirst({
+      await prisma.reminder.findFirst({
         where: {
           id,
 

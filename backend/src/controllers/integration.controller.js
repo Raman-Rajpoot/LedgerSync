@@ -1,25 +1,34 @@
-import {prisma} from "../db/db.js";
-
-import {
-  encrypt,
-  decrypt,
-} from "../utils/encryption.js";
-
+import { prisma } from "../db/db.js";
+import { encrypt, decrypt } from "../utils/encryption.js";
 import {
   getOrgIntegration,
   getMailer,
   getTwilioClient,
 } from "../services/integration.service.js";
 
-/*
-|--------------------------------------------------------------------------
-| GET ALL INTEGRATIONS
-|--------------------------------------------------------------------------
-*/
+const getOrganizationId = (req) =>
+  req.user?.organizationId ??
+  req.query?.organizationId ??
+  req.query?.organisationId ??
+  req.body?.organizationId ??
+  req.body?.organisationId;
+
+const parseEncryptedConfig = (integration) => {
+  if (!integration?.encryptedKey) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(decrypt(integration.encryptedKey));
+  } catch (error) {
+    console.error("Failed to parse encrypted integration config", error);
+    return null;
+  }
+};
 
 export const getIntegrations = async (req, res) => {
   try {
-    const { organizationId } = req.query;
+    const organizationId = getOrganizationId(req);
 
     if (!organizationId) {
       return res.status(400).json({
@@ -28,16 +37,9 @@ export const getIntegrations = async (req, res) => {
       });
     }
 
-    const integrations =
-      await prisma.integration.findMany({
-        where: {
-          organizationId,
-        },
-      });
-
-    /*
-     * Never send passwords/tokens to frontend.
-     */
+    const integrations = await prisma.integration.findMany({
+      where: { organizationId },
+    });
 
     const data = {
       email: {
@@ -48,7 +50,6 @@ export const getIntegrations = async (req, res) => {
         fromEmail: "",
         fromName: "",
       },
-
       twilio: {
         connected: false,
         accountSid: "",
@@ -57,50 +58,32 @@ export const getIntegrations = async (req, res) => {
     };
 
     for (const integration of integrations) {
-      if (integration.type === "EMAIL") {
+      const config = parseEncryptedConfig(integration);
+      if (!config) continue;
+
+      if (integration.provider === "EMAIL") {
         data.email = {
-          connected: integration.isActive,
-
-          host:
-            integration.config?.host || "",
-
-          port:
-            integration.config?.port || "587",
-
-          username:
-            integration.config?.username || "",
-
-          fromEmail:
-            integration.config?.fromEmail || "",
-
-          fromName:
-            integration.config?.fromName || "",
+          connected: true,
+          host: config.host || "",
+          port: config.port ? String(config.port) : "587",
+          username: config.username || "",
+          fromEmail: config.fromEmail || "",
+          fromName: config.fromName || "",
         };
       }
 
-      if (integration.type === "TWILIO") {
+      if (integration.provider === "TWILIO") {
         data.twilio = {
-          connected: integration.isActive,
-
-          accountSid:
-            integration.config?.accountSid || "",
-
-          phoneNumber:
-            integration.config?.phoneNumber || "",
+          connected: true,
+          accountSid: config.accountSid || "",
+          phoneNumber: config.phoneNumber || "",
         };
       }
     }
 
-    return res.status(200).json({
-      success: true,
-      data,
-    });
+    return res.status(200).json({ success: true, data });
   } catch (error) {
-    console.error(
-      "GET INTEGRATIONS ERROR:",
-      error
-    );
-
+    console.error("GET INTEGRATIONS ERROR:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch integrations",
@@ -108,117 +91,82 @@ export const getIntegrations = async (req, res) => {
   }
 };
 
-
-/*
-|--------------------------------------------------------------------------
-| SAVE EMAIL / SMTP
-|--------------------------------------------------------------------------
-*/
-
-export const saveEmailIntegration = async (
-  req,
-  res
-) => {
+export const saveEmailIntegration = async (req, res) => {
   try {
-    const {
-      organizationId,
-      host,
-      port,
-      username,
-      password,
-      fromEmail,
-      fromName,
-    } = req.body;
+    const organizationId = getOrganizationId(req);
+    const { config } = req.body;
 
     if (!organizationId) {
       return res.status(400).json({
         success: false,
-        message: "organizationId is required",
+        message: "Organization is required",
+      });
+    }
+
+    if (!config) {
+      return res.status(400).json({
+        success: false,
+        message: "Email configuration is required",
       });
     }
 
     if (
-      !host ||
-      !port ||
-      !username ||
-      !password ||
-      !fromEmail
+      !config.host ||
+      !config.port ||
+      !config.username ||
+      !config.password ||
+      !config.fromEmail
     ) {
       return res.status(400).json({
         success: false,
-        message:
-          "SMTP host, port, username, password and fromEmail are required",
+        message: "SMTP host, port, username, password and fromEmail are required",
       });
     }
 
-    /*
-     * Encrypt sensitive credentials.
-     */
+    const emailConfig = {
+      host: config.host,
+      port: Number(config.port),
+      username: config.username,
+      password: config.password,
+      fromEmail: config.fromEmail,
+      fromName: config.fromName || "LedgerSync",
+    };
 
-    const encryptedPassword =
-      encrypt(password);
+    const encryptedKey = encrypt(JSON.stringify(emailConfig));
 
-    /*
-     * Store configuration.
-     *
-     * Adjust `config` depending on your Prisma
-     * Integration model.
-     */
+    let integration = await prisma.integration.findFirst({
+      where: {
+        organizationId,
+        provider: "EMAIL",
+      },
+    });
 
-    const integration =
-      await prisma.integration.upsert({
-        where: {
-          organizationId_type: {
-            organizationId,
-            type: "EMAIL",
-          },
-        },
-
-        update: {
-          config: {
-            host,
-            port,
-            username,
-            password: encryptedPassword,
-            fromEmail,
-            fromName,
-          },
-
-          isActive: true,
-        },
-
-        create: {
+    if (integration) {
+      integration = await prisma.integration.update({
+        where: { id: integration.id },
+        data: { encryptedKey },
+      });
+    } else {
+      integration = await prisma.integration.create({
+        data: {
           organizationId,
-
-          type: "EMAIL",
-
-          config: {
-            host,
-            port,
-            username,
-            password: encryptedPassword,
-            fromEmail,
-            fromName,
-          },
-
-          isActive: true,
+          provider: "EMAIL",
+          encryptedKey,
         },
       });
+    }
 
     return res.status(200).json({
       success: true,
       message: "Email integration saved successfully",
       data: {
         id: integration.id,
-        connected: integration.isActive,
+        provider: integration.provider,
+        connected: true,
       },
     });
   } catch (error) {
-    console.error(
-      "SAVE EMAIL INTEGRATION ERROR:",
-      error
-    );
-
+    console.error("SAVE EMAIL INTEGRATION ERROR:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to save email integration",
@@ -226,24 +174,10 @@ export const saveEmailIntegration = async (
   }
 };
 
-
-/*
-|--------------------------------------------------------------------------
-| SAVE TWILIO
-|--------------------------------------------------------------------------
-*/
-
-export const saveTwilioIntegration = async (
-  req,
-  res
-) => {
+export const saveTwilioIntegration = async (req, res) => {
   try {
-    const {
-      organizationId,
-      accountSid,
-      authToken,
-      phoneNumber,
-    } = req.body;
+    const organizationId = getOrganizationId(req);
+    const { config } = req.body;
 
     if (!organizationId) {
       return res.status(400).json({
@@ -252,69 +186,57 @@ export const saveTwilioIntegration = async (
       });
     }
 
-    if (
-      !accountSid ||
-      !authToken ||
-      !phoneNumber
-    ) {
+    const accountSid = config?.accountSid ?? req.body.accountSid;
+    const authToken = config?.authToken ?? req.body.authToken;
+    const phoneNumber = config?.phoneNumber ?? req.body.phoneNumber;
+
+    if (!accountSid || !authToken || !phoneNumber) {
       return res.status(400).json({
         success: false,
-        message:
-          "Account SID, Auth Token and phone number are required",
+        message: "Account SID, Auth Token and phone number are required",
       });
     }
 
-    const encryptedToken =
-      encrypt(authToken);
+    const twilioConfig = {
+      accountSid,
+      authToken,
+      phoneNumber,
+    };
 
-    const integration =
-      await prisma.integration.upsert({
-        where: {
-          organizationId_type: {
-            organizationId,
-            type: "TWILIO",
-          },
-        },
+    const encryptedKey = encrypt(JSON.stringify(twilioConfig));
 
-        update: {
-          config: {
-            accountSid,
-            authToken: encryptedToken,
-            phoneNumber,
-          },
+    let integration = await prisma.integration.findFirst({
+      where: {
+        organizationId,
+        provider: "TWILIO",
+      },
+    });
 
-          isActive: true,
-        },
-
-        create: {
+    if (integration) {
+      integration = await prisma.integration.update({
+        where: { id: integration.id },
+        data: { encryptedKey },
+      });
+    } else {
+      integration = await prisma.integration.create({
+        data: {
           organizationId,
-
-          type: "TWILIO",
-
-          config: {
-            accountSid,
-            authToken: encryptedToken,
-            phoneNumber,
-          },
-
-          isActive: true,
+          provider: "TWILIO",
+          encryptedKey,
         },
       });
+    }
 
     return res.status(200).json({
       success: true,
       message: "Twilio integration saved successfully",
       data: {
         id: integration.id,
-        connected: integration.isActive,
+        connected: true,
       },
     });
   } catch (error) {
-    console.error(
-      "SAVE TWILIO INTEGRATION ERROR:",
-      error
-    );
-
+    console.error("SAVE TWILIO INTEGRATION ERROR:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to save Twilio integration",
@@ -322,20 +244,9 @@ export const saveTwilioIntegration = async (
   }
 };
 
-
-/*
-|--------------------------------------------------------------------------
-| TEST EMAIL
-|--------------------------------------------------------------------------
-*/
-
-export const testEmailIntegration = async (
-  req,
-  res
-) => {
+export const testEmailIntegration = async (req, res) => {
   try {
-    const { organizationId } =
-      req.body;
+    const organizationId = getOrganizationId(req);
 
     if (!organizationId) {
       return res.status(400).json({
@@ -344,63 +255,33 @@ export const testEmailIntegration = async (
       });
     }
 
-    /*
-     * Use your existing mail service.
-     */
-
-    const mailer =
-      await getMailer(
-        organizationId
-      );
-
+    const mailer = await getMailer(organizationId);
     if (!mailer) {
       return res.status(400).json({
         success: false,
-        message:
-          "Email integration is not configured",
+        message: "Email integration is not configured",
       });
     }
 
-    /*
-     * Verify SMTP connection.
-     */
-
-    await mailer.verify();
+    await mailer.transporter.verify();
 
     return res.status(200).json({
       success: true,
-      message:
-        "Email connection successful",
+      message: "Email connection successful",
     });
   } catch (error) {
-    console.error(
-      "TEST EMAIL ERROR:",
-      error
-    );
-
+    console.error("TEST EMAIL ERROR:", error);
     return res.status(400).json({
       success: false,
-      message:
-        "Email connection failed",
+      message: "Email connection failed",
       error: error.message,
     });
   }
 };
 
-
-/*
-|--------------------------------------------------------------------------
-| TEST TWILIO
-|--------------------------------------------------------------------------
-*/
-
-export const testTwilioIntegration = async (
-  req,
-  res
-) => {
+export const testTwilioIntegration = async (req, res) => {
   try {
-    const { organizationId } =
-      req.body;
+    const organizationId = getOrganizationId(req);
 
     if (!organizationId) {
       return res.status(400).json({
@@ -409,73 +290,33 @@ export const testTwilioIntegration = async (
       });
     }
 
-    /*
-     * Use your existing Twilio service.
-     */
-
-    const twilioClient =
-      await getTwilioClient(
-        organizationId
-      );
-
+    const twilioClient = await getTwilioClient(organizationId);
     if (!twilioClient) {
       return res.status(400).json({
         success: false,
-        message:
-          "Twilio integration is not configured",
+        message: "Twilio integration is not configured",
       });
     }
 
-    /*
-     * Fetch account information.
-     *
-     * This verifies that the credentials
-     * actually work.
-     */
-
-    await twilioClient.api
-      .accounts
-      .get(
-        twilioClient.accountSid
-      )
-      .fetch();
+    await twilioClient.client.api.accounts.get(twilioClient.accountSid).fetch();
 
     return res.status(200).json({
       success: true,
-      message:
-        "Twilio connection successful",
+      message: "Twilio connection successful",
     });
   } catch (error) {
-    console.error(
-      "TEST TWILIO ERROR:",
-      error
-    );
-
+    console.error("TEST TWILIO ERROR:", error);
     return res.status(400).json({
       success: false,
-      message:
-        "Twilio connection failed",
+      message: "Twilio connection failed",
       error: error.message,
     });
   }
 };
 
-
-/*
-|--------------------------------------------------------------------------
-| DELETE / DISCONNECT INTEGRATION
-|--------------------------------------------------------------------------
-*/
-
-export const deleteIntegration = async (
-  req,
-  res
-) => {
+export const deleteIntegration = async (req, res) => {
   try {
-    const {
-      organizationId,
-    } = req.body;
-
+    const organizationId = getOrganizationId(req);
     const { type } = req.params;
 
     if (!organizationId) {
@@ -485,56 +326,30 @@ export const deleteIntegration = async (
       });
     }
 
-    let integrationType;
-
-    if (type === "email") {
-      integrationType = "EMAIL";
-    }
-
-    if (type === "twilio") {
-      integrationType = "TWILIO";
-    }
-
-    if (!integrationType) {
+    const integrationType = String(type || "").toUpperCase();
+    if (!integrationType || !["EMAIL", "TWILIO"].includes(integrationType)) {
       return res.status(400).json({
         success: false,
         message: "Invalid integration type",
       });
     }
 
-    /*
-     * Don't delete the integration.
-     *
-     * Just disable it so historical information
-     * remains available.
-     */
-
-    await prisma.integration.updateMany({
+    await prisma.integration.deleteMany({
       where: {
         organizationId,
-        type: integrationType,
-      },
-
-      data: {
-        isActive: false,
+        provider: integrationType,
       },
     });
 
     return res.status(200).json({
       success: true,
-      message:
-        `${type} integration disconnected successfully`,
+      message: `${type} integration disconnected successfully`,
     });
   } catch (error) {
-    console.error(
-      "DELETE INTEGRATION ERROR:",
-      error
-    );
-
+    console.error("DELETE INTEGRATION ERROR:", error);
     return res.status(500).json({
       success: false,
-      message:
-        "Failed to disconnect integration",
+      message: "Failed to disconnect integration",
     });
   }
 };

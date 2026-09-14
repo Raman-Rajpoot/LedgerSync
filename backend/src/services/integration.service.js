@@ -2,203 +2,108 @@ import nodemailer from "nodemailer";
 import twilio from "twilio";
 
 import { prisma } from "../db/db.js";
+import { decrypt } from "../utils/encryption.js";
 
-import {
-  decrypt,
-} from "../utils/encryption.js";
+const toProviderType = (type) => String(type || "").toUpperCase();
 
+const parseEncryptedConfig = (integration) => {
+  if (!integration?.encryptedKey) {
+    return null;
+  }
 
-/* ==========================================
-   GET ORGANIZATION INTEGRATION
-========================================== */
+  try {
+    return JSON.parse(decrypt(integration.encryptedKey));
+  } catch (error) {
+    console.error("Failed to decode integration config:", error);
+    return null;
+  }
+};
 
-export const getOrgIntegration = async ({
-  organizationId,
-  type,
-}) => {
-
+export const getOrgIntegration = async ({ organizationId, type }) => {
   if (!organizationId) {
-    throw new Error(
-      "organizationId is required"
-    );
+    throw new Error("organizationId is required");
   }
 
-  if (!type) {
-    throw new Error(
-      "Integration type is required"
-    );
+  const provider = toProviderType(type);
+  if (!provider) {
+    throw new Error("Integration type is required");
   }
 
-  const integration =
-    await prisma.integration.findUnique({
-      where: {
-        organizationId_type: {
-          organizationId,
-          type,
-        },
-      },
-    });
-
-  if (!integration) {
-    return null;
-  }
-
-  if (!integration.isActive) {
-    return null;
-  }
+  const integration = await prisma.integration.findFirst({
+    where: {
+      organizationId,
+      provider,
+    },
+  });
 
   return integration;
 };
 
-
-/* ==========================================
-   GET EMAIL MAILER
-========================================== */
-
-export const getMailer = async (
-  organizationId
-) => {
-
-  const integration =
-    await getOrgIntegration({
-      organizationId,
-      type: "EMAIL",
-    });
+export const getMailer = async (organizationId) => {
+  const integration = await getOrgIntegration({
+    organizationId,
+    type: "EMAIL",
+  });
 
   if (!integration) {
     return null;
   }
 
-  const config = integration.config;
-
+  const config = parseEncryptedConfig(integration);
   if (!config) {
-    throw new Error(
-      "Email integration configuration is missing"
-    );
+    throw new Error("Email integration configuration is missing");
   }
 
-  if (
-    !config.host ||
-    !config.username ||
-    !config.password
-  ) {
-    throw new Error(
-      "Email integration configuration is incomplete"
-    );
+  if (!config.host || !config.username || !config.password) {
+    throw new Error("Email integration configuration is incomplete");
   }
 
-  /*
-   * Password was encrypted before
-   * being stored in database.
-   */
+  const password = config.password;
+  const port = Number(config.port) || 587;
 
-  const password =
-    decrypt(config.password);
-
-
-  const port =
-    Number(config.port) || 587;
-
-
-  const transporter =
-    nodemailer.createTransport({
-
-      host: config.host,
-
-      port,
-
-      secure:
-        port === 465,
-
-      auth: {
-
-        user: config.username,
-
-        pass: password,
-
-      },
-
-    });
-
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port,
+    secure: port === 465,
+    auth: {
+      user: config.username,
+      pass: password,
+    },
+  });
 
   return {
-
     transporter,
-
-    fromEmail:
-      config.fromEmail ||
-      config.username,
-
-    fromName:
-      config.fromName ||
-      "LedgerSync",
-
+    fromEmail: config.fromEmail || config.username,
+    fromName: config.fromName || "LedgerSync",
   };
 };
 
-
-/* ==========================================
-   GET TWILIO CLIENT
-========================================== */
-
-export const getTwilioClient = async (
-  organizationId
-) => {
-
-  const integration =
-    await getOrgIntegration({
-      organizationId,
-      type: "TWILIO",
-    });
+export const getTwilioClient = async (organizationId) => {
+  const integration = await getOrgIntegration({
+    organizationId,
+    type: "TWILIO",
+  });
 
   if (!integration) {
     return null;
   }
 
-  const config = integration.config;
-
+  const config = parseEncryptedConfig(integration);
   if (!config) {
-    throw new Error(
-      "Twilio integration configuration is missing"
-    );
+    throw new Error("Twilio integration configuration is missing");
   }
 
-  if (
-    !config.accountSid ||
-    !config.authToken
-  ) {
-    throw new Error(
-      "Twilio integration configuration is incomplete"
-    );
+  if (!config.accountSid || !config.authToken) {
+    throw new Error("Twilio integration configuration is incomplete");
   }
 
-
-  /*
-   * Auth token was encrypted
-   * before storing it.
-   */
-
-  const authToken =
-    decrypt(config.authToken);
-
-
-  const client =
-    twilio(
-      config.accountSid,
-      authToken
-    );
-
+  const authToken = config.authToken;
+  const client = twilio(config.accountSid, authToken);
 
   return {
-
     client,
-
-    phoneNumber:
-      config.phoneNumber,
-
-    whatsappNumber:
-      config.whatsappNumber ||
-      config.phoneNumber,
-
+    accountSid: config.accountSid,
+    phoneNumber: config.phoneNumber,
+    whatsappNumber: config.whatsappNumber || config.phoneNumber,
   };
 };
