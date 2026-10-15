@@ -76,7 +76,7 @@ async function createRemindersForInvoice(invoice) {
       });
 
       // Skip reminders whose scheduled time has already passed
-      if (scheduledAt <= now) {
+      if (scheduledAt < now) {
         console.log(
           `Skipping ${rule.name} because scheduled time has passed`
         );

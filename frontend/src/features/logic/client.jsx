@@ -419,6 +419,7 @@ function Client() {
                 >
 
                   <ClientCard
+                    clientId={client.id}
                     name={client.name}
                     mail={client.email}
                     company={client.company}

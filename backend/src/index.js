@@ -18,6 +18,7 @@ import profileRoutes from "./routes/profile.route.js";
 import paymentRoutes from "./routes/payment.route.js";
 
 import reminderRoutes from "./routes/reminder.route.js";
+import { testSendEmail } from "../tests/controllers/reminder.controller.test.js";
 
 
 dotenv.config();
@@ -70,9 +71,10 @@ app.use(
   paymentRoutes
 );
 
+app.post("/v1/api/test-email", authenticateTenant, testSendEmail);
+
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
-
   startReminderScheduler();
 });
 

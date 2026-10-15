@@ -3,57 +3,43 @@ import {
 } from "./integration.service.js";
 
 
+
 const sendEmail = async ({
   to,
   subject,
   message,
   organizationId,
 }) => {
-
   if (!organizationId) {
-    throw new Error(
-      "organizationId is required"
-    );
+    throw new Error("organizationId is required");
   }
 
+  // SMTP credentials are loaded from .env
+  const mailer = await getMailer();
 
-  const mailer =
-    await getMailer(
-      organizationId
-    );
+  const result = await mailer.transporter.sendMail({
+    from: `"${mailer.fromName}" <${mailer.fromEmail}>`,
+    to,
+    subject,
+    html: message,
+  });
 
-
-  if (!mailer) {
+  if (result.rejected?.length > 0 || result.accepted?.length === 0) {
     throw new Error(
-      "Email integration is not configured for this organization"
+      `Email was not accepted by the SMTP server for: ${to}`
     );
   }
-
-
-  const result =
-    await mailer.transporter.sendMail({
-
-      from:
-        `"${mailer.fromName}" <${mailer.fromEmail}>`,
-
-      to,
-
-      subject,
-
-      html: message,
-
-    });
-
 
   return {
-
     success: true,
-
-    messageId:
-      result.messageId,
-
+    messageId: result.messageId,
+    accepted: result.accepted,
+    rejected: result.rejected,
+    response: result.response,
   };
 };
 
-
 export default sendEmail;
+
+
+

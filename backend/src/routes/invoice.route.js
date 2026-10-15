@@ -10,6 +10,7 @@ import {
   markPartial,
   deleteInvoice,
   getInvoiceStatistics,
+  getClientInvoices,
 } from "../controllers/invoice.controller.js";
 
 import authenticateTenant from "../middleware/auth.middleware.js";
@@ -64,6 +65,12 @@ router.post(
   createInvoice
 );
 
+
+router.get(
+  "/client/:clientId",
+  authenticateTenant,
+  getClientInvoices
+);
 
 // ==========================================
 // UPDATE INVOICE

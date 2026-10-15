@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   FiArrowLeft,
   FiSave,
@@ -8,7 +8,7 @@ import {
   // FiIndianRupee,
   FiPlus,
 } from "react-icons/fi";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 
 import "../style/addInvoice.css";
 import getAllClient from "../../services/client.service";
@@ -16,6 +16,7 @@ import invoiceService from "../../services/invoice.service";
 
 function AddInvoice() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const token = localStorage.getItem("token");
 
@@ -35,7 +36,7 @@ function AddInvoice() {
   const [success, setSuccess] = useState("");
 
   const [form, setForm] = useState({
-    clientId: "",
+    clientId: searchParams.get("clientId") || "",
     invoiceNumber: "",
     issueDate: new Date()
       .toISOString()
@@ -48,48 +49,34 @@ function AddInvoice() {
   });
 
 
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-
   /* =========================================
      LOAD CLIENTS
   ========================================= */
 
   useEffect(() => {
+    if (!token) return;
+
+    const fetchClients = async () => {
+      try {
+        setLoadingClients(true);
+
+        const data = await getAllClient.getAllClient(organisationId);
+
+        setClients(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to load clients:", err);
+        setError("Unable to load clients.");
+      } finally {
+        setLoadingClients(false);
+      }
+    };
+
     fetchClients();
-  }, [organisationId]);
+  }, [organisationId, token]);
 
-
-  const fetchClients = async () => {
-    try {
-      setLoadingClients(true);
-
-      const data =
-        await getAllClient.getAllClient(
-          organisationId
-        );
-
-      setClients(
-        Array.isArray(data)
-          ? data
-          : []
-      );
-
-    } catch (err) {
-      console.error(
-        "Failed to load clients:",
-        err
-      );
-
-      setError(
-        "Unable to load clients."
-      );
-    } finally {
-      setLoadingClients(false);
-    }
-  };
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
 
 
   /* =========================================
@@ -217,7 +204,7 @@ function AddInvoice() {
       if (!response.success){
 
         throw new Error(
-          result?.message ||
+          response?.message ||
           "Failed to create invoice"
         );
       }

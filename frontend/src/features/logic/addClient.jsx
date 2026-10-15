@@ -1,13 +1,16 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import ClientService from "../../services/client.service";
 import "../style/addClient.css";
 
 const AddClient = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("edit");
 
   const [loading, setLoading] = useState(false);
+  const [loadingClient, setLoadingClient] = useState(Boolean(editId));
 
   const [formData, setFormData] = useState({
     name: "",
@@ -17,6 +20,32 @@ const AddClient = () => {
     gstNumber: "",
     notes: "",
   });
+
+  useEffect(() => {
+    if (!editId) return;
+
+    const loadClient = async () => {
+      try {
+        setLoadingClient(true);
+        const client = await ClientService.getClient(editId);
+        setFormData({
+          name: client.name || "",
+          phone: client.phone || "",
+          email: client.email || "",
+          company: client.companyName || client.company || "",
+          gstNumber: client.gstNumber || "",
+          notes: client.customNotes || client.notes || "",
+        });
+      } catch (err) {
+        toast.error(err.response?.data?.error || "Failed to load client");
+        navigate("/clients");
+      } finally {
+        setLoadingClient(false);
+      }
+    };
+
+    loadClient();
+  }, [editId, navigate]);
 
   const handleChange = (e) => {
     setFormData((prev) => ({
@@ -62,10 +91,14 @@ console.log("check mail")
         ...(organizationId ? { organizationId, organisationId: organizationId } : {}),
       };
 
-      await ClientService.createClient(payload);
+      if (editId) {
+        await ClientService.updateClient(editId, payload);
+      } else {
+        await ClientService.createClient(payload);
+      }
 
-      toast.success("Client added successfully");
-      navigate("/clients");
+      toast.success(editId ? "Client updated successfully" : "Client added successfully");
+      navigate(editId ? `/client/${editId}` : "/clients");
     } catch (err) {
       toast.error(err.response?.data?.error || err.response?.data?.message || 'Failed to add client');
     } finally {
@@ -78,7 +111,7 @@ console.log("check mail")
       <div className="client-card">
 
         <div className="card-header">
-          <h2>Add New Client</h2>
+          <h2>{editId ? "Edit Client" : "Add New Client"}</h2>
           <p>Create a client to manage invoices and ledger records.</p>
         </div>
 
@@ -152,9 +185,15 @@ console.log("check mail")
             <button
               type="submit"
               className="save-btn"
-              disabled={loading}
+              disabled={loading || loadingClient}
             >
-              {loading ? "Saving..." : "Save Client"}
+              {loading
+                ? "Saving..."
+                : loadingClient
+                  ? "Loading client..."
+                  : editId
+                    ? "Update Client"
+                    : "Save Client"}
             </button>
           </div>
 

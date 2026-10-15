@@ -529,6 +529,69 @@ export const getAllReminders = async (req, res) => {
   }
 };
 
+export const getClientReminders = async (req, res) => {
+  try {
+    const organizationId = getOrgId(req);
+    const { clientId } = req.params;
+
+    if (!organizationId) {
+      return res.status(401).json({
+        success: false,
+        message: "Organization not found",
+      });
+    }
+
+    const client = await prisma.client.findFirst({
+      where: { id: clientId, organizationId },
+      select: { id: true },
+    });
+
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: "Client not found",
+      });
+    }
+
+    const reminders = await prisma.reminder.findMany({
+      where: {
+        organizationId,
+        invoice: { clientId, organizationId },
+      },
+      include: {
+        rule: {
+          select: { id: true, name: true, stage: true, channel: true },
+        },
+        invoice: {
+          include: {
+            client: {
+              select: { id: true, name: true, email: true, phone: true },
+            },
+            escalationLogs: {
+              where: { status: "SENT", channel: "EMAIL" },
+              orderBy: { sentAt: "desc" },
+              take: 1,
+              select: { sentAt: true },
+            },
+          },
+        },
+      },
+      orderBy: { scheduledAt: "asc" },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: reminders,
+    });
+  } catch (error) {
+    console.error("GET CLIENT REMINDERS ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch client reminders",
+    });
+  }
+};
+
 
 // ==========================================
 // GET SINGLE REMINDER

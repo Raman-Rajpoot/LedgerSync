@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FiUser,
@@ -50,67 +50,54 @@ function Profile() {
   ========================================== */
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
 
-    const storedUser =
-      localStorage.getItem("user");
-
-    if (!storedUser) {
+    if (!token) {
       navigate("/login");
       return;
     }
 
-    try {
+    let isCurrent = true;
 
-      const user =
-        JSON.parse(storedUser);
+    const fetchProfile = async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL || "http://localhost:5000/v1/api"}/profile`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const result = await response.json();
 
-      const userData = {
-        name:
-          user.name ||
-          user.fullName ||
-          "",
+        if (!response.ok) {
+          throw new Error(result.message || "Failed to load profile");
+        }
 
-        email:
-          user.email ||
-          "",
+        if (!isCurrent) return;
 
-        phone:
-          user.phone ||
-          "",
+        const user = result.data || {};
+        const cachedUser = JSON.parse(localStorage.getItem("user") || "{}");
+        const userData = {
+          name: user.fullName || cachedUser.fullName || cachedUser.name || "",
+          email: user.email || cachedUser.email || "",
+          phone: cachedUser.phone || "",
+          company: user.organizationName || cachedUser.organizationName || cachedUser.company || "",
+          city: cachedUser.city || "",
+          state: cachedUser.state || "",
+        };
 
-        company:
-          user.company ||
-          user.companyName ||
-          "",
+        setProfile(userData);
+        setFormData(userData);
+      } catch (err) {
+        if (isCurrent) setError(err.message || "Failed to load profile");
+      } finally {
+        if (isCurrent) setLoading(false);
+      }
+    };
 
-        city:
-          user.city ||
-          "",
+    fetchProfile();
 
-        state:
-          user.state ||
-          "",
-      };
-
-      setProfile(userData);
-      setFormData(userData);
-
-    } catch (err) {
-
-      console.error(
-        "Failed to read user:",
-        err
-      );
-
-      setError(
-        "Failed to load profile"
-      );
-
-    } finally {
-
-      setLoading(false);
-
-    }
+    return () => {
+      isCurrent = false;
+    };
 
   }, [navigate]);
 
@@ -163,9 +150,11 @@ function Profile() {
                 `Bearer ${token}`,
             },
 
-            body: JSON.stringify(
-              formData
-            ),
+            body: JSON.stringify({
+              fullName: formData.name,
+              email: formData.email,
+              organizationName: formData.company,
+            }),
           }
         );
 
@@ -184,7 +173,15 @@ function Profile() {
       }
 
 
-      setProfile(formData);
+      const updatedUser = data.data || {};
+      const updatedProfile = {
+        ...formData,
+        name: updatedUser.fullName || formData.name,
+        email: updatedUser.email || formData.email,
+        company: updatedUser.organizationName || formData.company,
+      };
+
+      setProfile(updatedProfile);
 
       /*
        * Keep localStorage user
@@ -203,7 +200,10 @@ function Profile() {
           "user",
           JSON.stringify({
             ...user,
-            ...formData,
+            ...updatedUser,
+            ...updatedProfile,
+            fullName: updatedProfile.name,
+            organizationName: updatedProfile.company,
           })
         );
 

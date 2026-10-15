@@ -294,7 +294,8 @@
 ========================================= */
 
 .client-information-card,
-.client-invoices-card {
+.client-invoices-card,
+.client-reminders-card {
   margin-top: 15px;
 
   background: white;
@@ -636,4 +637,50 @@
     grid-template-columns: 1fr;
   }
 
+}
+
+.reminder-table-wrap {
+  overflow-x: auto;
+}
+
+.reminder-table-header,
+.reminder-table-row {
+  min-width: 760px;
+  display: grid;
+  grid-template-columns: 1.1fr 1.4fr 1.5fr 1.2fr 1.4fr;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+}
+
+.reminder-table-header {
+  background: #fafafd;
+  border-bottom: 1px solid #eeeef3;
+  color: #9995a5;
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.reminder-table-row {
+  border-bottom: 1px solid #f0eff4;
+  color: #5d596a;
+  font-size: 10px;
+}
+
+.reminder-table-row:last-child {
+  border-bottom: none;
+}
+
+.reminder-empty {
+  min-height: 88px;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  color: #898596;
+  font-size: 11px;
+  text-align: center;
+}
+
+.reminder-empty.error {
+  color: #c34646;
 }

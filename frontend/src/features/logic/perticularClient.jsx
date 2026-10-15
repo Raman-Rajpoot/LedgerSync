@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   FiArrowLeft,
@@ -14,6 +14,9 @@ import {
 } from "react-icons/fi";
 
 import getAllClient from "../../services/client.service";
+import invoiceService from "../../services/invoice.service";
+import reminderService from "../../services/reminder.service";
+import integrationService from "../../services/integration.service";
 import "../style/perticularClient.css";
 
 function SingleClientCard() {
@@ -23,36 +26,103 @@ function SingleClientCard() {
   const token = localStorage.getItem("token");
 
   const [client, setClient] = useState(null);
+  const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [invoicesLoading, setInvoicesLoading] = useState(true);
   const [error, setError] = useState("");
+  const [invoiceError, setInvoiceError] = useState("");
+  const [reminders, setReminders] = useState([]);
+  const [remindersLoading, setRemindersLoading] = useState(true);
+  const [reminderError, setReminderError] = useState("");
+  const [mailFrom, setMailFrom] = useState("");
+
+  useEffect(() => {
+    if (!token) return;
+
+    let isCurrent = true;
+
+    const loadClient = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const data = await getAllClient.getClient(id);
+        if (isCurrent) setClient(data);
+      } catch (err) {
+        console.error("Failed to fetch client:", err);
+        if (isCurrent) setError("Unable to load client details.");
+      } finally {
+        if (isCurrent) setLoading(false);
+      }
+    };
+
+    const loadInvoices = async () => {
+      try {
+        setInvoicesLoading(true);
+        setInvoiceError("");
+        const response = await invoiceService.getClientInvoices({ clientId: id });
+        const invoiceData = response.data?.data;
+        if (!response.data?.success || !Array.isArray(invoiceData)) {
+          throw new Error(response.data?.message || "Unable to load client invoices.");
+        }
+        if (isCurrent) setInvoices(invoiceData);
+      } catch (err) {
+        console.error("Failed to fetch client invoices:", err);
+        if (isCurrent) {
+          setInvoiceError(err.response?.data?.message || err.message || "Unable to load client invoices.");
+        }
+      } finally {
+        if (isCurrent) setInvoicesLoading(false);
+      }
+    };
+
+    const loadReminders = async () => {
+      try {
+        setRemindersLoading(true);
+        setReminderError("");
+        const result = await reminderService.getClientReminders(id);
+        if (!result.success || !Array.isArray(result.data)) {
+          throw new Error(result.message || "Unable to load reminders.");
+        }
+        if (isCurrent) setReminders(result.data);
+      } catch (err) {
+        console.error("Failed to fetch client reminders:", err);
+        if (isCurrent) {
+          setReminderError(err.response?.data?.message || err.message || "Unable to load reminders.");
+        }
+      } finally {
+        if (isCurrent) setRemindersLoading(false);
+      }
+    };
+
+    const loadMailFrom = async () => {
+      try {
+        const result = await integrationService.getAllIntegrations();
+        const emailConfig = result.data?.email;
+        if (isCurrent && emailConfig?.connected) {
+          setMailFrom(
+            emailConfig.fromName
+              ? `${emailConfig.fromName} <${emailConfig.fromEmail}>`
+              : emailConfig.fromEmail || ""
+          );
+        }
+      } catch (err) {
+        console.error("Failed to load sender configuration:", err);
+      }
+    };
+
+    loadClient();
+    loadInvoices();
+    loadReminders();
+    loadMailFrom();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [id, token]);
 
   if (!token) {
     return <Navigate to="/login" replace />;
   }
-
-  useEffect(() => {
-    fetchClient();
-  }, [id]);
-
-  const fetchClient = async () => {
-    try {
-      setLoading(true);
-      setError("");
-
-      const data = await getAllClient.getClient(id);
-
-      setClient(data);
-
-    } catch (err) {
-      console.error("Failed to fetch client:", err);
-
-      setError(
-        "Unable to load client details."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
 
 
   /* ==========================================
@@ -163,10 +233,6 @@ function SingleClientCard() {
   const address =
     client.address ||
     "No address";
-
-  const invoices =
-    client.invoices || [];
-
 
   /* ==========================================
      CALCULATIONS
@@ -486,7 +552,10 @@ function SingleClientCard() {
           </div>
 
 
-          <button className="add-invoice-btn">
+          <button
+            className="add-invoice-btn"
+            onClick={() => navigate(`/add-invoice?clientId=${client.id}`)}
+          >
 
             <FiPlus />
 
@@ -497,7 +566,11 @@ function SingleClientCard() {
         </div>
 
 
-        {invoices.length === 0 ? (
+        {invoicesLoading ? (
+          <div className="no-invoices">Loading invoices...</div>
+        ) : invoiceError ? (
+          <div className="no-invoices">{invoiceError}</div>
+        ) : invoices.length === 0 ? (
 
           <div className="no-invoices">
 
@@ -594,6 +667,54 @@ function SingleClientCard() {
 
         )}
 
+      </div>
+
+      <div className="client-reminders-card">
+        <div className="section-heading">
+          <div>
+            <h2>Reminder Schedule</h2>
+            <p>Upcoming reminder dates and recent email delivery</p>
+          </div>
+        </div>
+
+        {remindersLoading ? (
+          <div className="reminder-empty">Loading reminders...</div>
+        ) : reminderError ? (
+          <div className="reminder-empty error">{reminderError}</div>
+        ) : reminders.length === 0 ? (
+          <div className="reminder-empty">No reminders scheduled for this client.</div>
+        ) : (
+          <div className="reminder-table-wrap">
+            <div className="reminder-table-header">
+              <span>INVOICE</span>
+              <span>NEXT REMINDER</span>
+              <span>MAIL FROM</span>
+              <span>TO</span>
+              <span>LAST SENT</span>
+            </div>
+            {reminders.map((reminder) => {
+              const channel = reminder.rule?.channel || "EMAIL";
+              const lastSent = reminder.invoice?.escalationLogs?.[0]?.sentAt;
+              const recipient = channel === "EMAIL"
+                ? reminder.invoice?.client?.email
+                : reminder.invoice?.client?.phone;
+
+              return (
+                <div className="reminder-table-row" key={reminder.id}>
+                  <span>{reminder.invoice?.invoiceNumber || "Invoice"}</span>
+                  <span>
+                    {reminder.status === "PENDING" && reminder.scheduledAt
+                      ? new Date(reminder.scheduledAt).toLocaleString()
+                      : "No upcoming send"}
+                  </span>
+                  <span>{channel === "EMAIL" ? mailFrom || "Not configured" : "-"}</span>
+                  <span>{recipient || "No recipient"}</span>
+                  <span>{lastSent ? new Date(lastSent).toLocaleString() : "Never"}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
     </div>

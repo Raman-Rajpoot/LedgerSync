@@ -60,8 +60,22 @@ const getInvoice = async (id) => {
 
   return data;
 };
+// /client/:clientId
 
 
+
+const getClientInvoices = async ({ clientId, page }) => {
+  const data = await axios.get(
+    `${API_BASE}/client/${clientId}`,
+    {
+      headers: authHeaders(),
+      params: {
+        page,
+      }
+    }
+  );
+  return data;
+}
 // ==========================================
 // Create Invoice
 // ==========================================
@@ -217,4 +231,5 @@ export default {
   markPaid,
   markPartial,
   getInvoiceStatistics,
+  getClientInvoices
 };

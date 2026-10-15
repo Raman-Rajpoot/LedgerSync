@@ -48,6 +48,15 @@ const getReminder = async (id) => {
 
   return data;
 };
+
+const getClientReminders = async (clientId) => {
+  const { data } = await axios.get(
+    `${API_BASE}/client/${clientId}`,
+    { headers: authHeaders() }
+  );
+
+  return data;
+};
 // GET /api/reminders/invoice/:invoiceId
 // ==========================================
 
@@ -190,6 +199,7 @@ const deleteReminder = async (id) => {
 const reminderService = {
   getAllReminders,
   getReminder,
+  getClientReminders,
   getReminderByInvoice,
   createReminder,
   updateReminder,

@@ -2,6 +2,7 @@ import express from "express";
 
 import {
   getAllReminders,
+  getClientReminders,
   getReminder,
   sendEmail,
   sendSMS,
@@ -22,6 +23,12 @@ router.get(
   "/",
   authMiddleware,
   getAllReminders
+);
+
+router.get(
+  "/client/:clientId",
+  authMiddleware,
+  getClientReminders
 );
 
 

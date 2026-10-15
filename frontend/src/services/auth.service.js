@@ -6,6 +6,10 @@ const saveToken = (token) => {
   localStorage.setItem('token', token);
 };
 
+const saveUser = (user) => {
+  if (user) localStorage.setItem('user', JSON.stringify(user));
+};
+
 const persistOrganizationId = (organizationId) => {
   if (!organizationId) return;
   localStorage.setItem('organizationId', organizationId);
@@ -15,6 +19,7 @@ const persistOrganizationId = (organizationId) => {
 const login = async (email, password) => {
   const { data } = await axios.post(`${API_BASE}/login`, { email, password });
   if (data.token) saveToken(data.token);
+  saveUser(data.user);
   if (data.user?.organizationId) persistOrganizationId(data.user.organizationId);
   return data;
 };
@@ -22,12 +27,14 @@ const login = async (email, password) => {
 const register = async (organizationName, email, password, fullName) => {
   const { data } = await axios.post(`${API_BASE}/register`, { organizationName, email, password, fullName });
   if (data.token) saveToken(data.token);
+  saveUser(data.user);
   if (data.user?.organizationId) persistOrganizationId(data.user.organizationId);
   return data;
 };
 
 const logout = () => {
   localStorage.removeItem('token');
+  localStorage.removeItem('user');
   localStorage.removeItem('organizationId');
   localStorage.removeItem('organisationId');
 };

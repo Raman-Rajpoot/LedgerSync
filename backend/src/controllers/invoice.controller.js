@@ -222,9 +222,9 @@ export const createInvoice = async (req, res) => {
         organizationId,
       },
     });
-
-    await createRemindersForInvoice(invoice);
-
+    console.log("Invoice created:", invoice);
+    const reminder = await createRemindersForInvoice(invoice);
+  console.log("Reminders created for invoice:", reminder);
     return res.status(201).json({
       success: true,
       message: "Invoice created successfully",
@@ -710,6 +710,69 @@ export const getInvoiceStatistics = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to fetch invoice statistics",
+    });
+  }
+};
+
+
+export const getClientInvoices = async (req, res) => {
+  try {
+    const { clientId } = req.params;
+
+    const organizationId = req.user?.organizationId;
+
+    if (!clientId) {
+      return res.status(400).json({
+        success: false,
+        message: "Client ID is required",
+      });
+    }
+
+    if (!organizationId) {
+      return res.status(401).json({
+        success: false,
+        message: "Organization authentication required",
+      });
+    }
+
+    // Verify that the client belongs to this organization.
+    const client = await prisma.client.findFirst({
+      where: {
+        id: clientId,
+        organizationId,
+      },
+    });
+
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: "Client not found",
+      });
+    }
+
+    // Fetch all invoices belonging to this client.
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        clientId,
+        organizationId,
+      },
+      orderBy: {
+        dueDate: "desc",
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Client invoices fetched successfully",
+      data: invoices,
+      count: invoices.length,
+    });
+  } catch (error) {
+    console.error("Get client invoices error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch client invoices",
     });
   }
 };
