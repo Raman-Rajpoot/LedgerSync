@@ -76,6 +76,9 @@ model Invoice {
 
   invoiceNumber String        @unique
   amount        Float
+  subtotal      Float?
+  tax           Float?
+  discount      Float?
   issueDate     DateTime      @default(now())
   dueDate       DateTime
   status        InvoiceStatus @default(PENDING)
@@ -94,8 +97,6 @@ model Invoice {
 }
 
 enum InvoiceStatus {
-  DRAFT
-  SENT
   PENDING
   PARTIAL
   PAID

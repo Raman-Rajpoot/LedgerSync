@@ -1,5 +1,6 @@
 import { prisma } from "../db/db.js";
 import { createRemindersForInvoice } from "../services/reminder.service.js";
+import { randomUUID } from "node:crypto";
 
 
 // ==========================================
@@ -10,6 +11,16 @@ const getOrganizationId = (req) => {
   return req.user?.organizationId || req.organizationId;
 };
 
+const invoiceStatuses = new Set([
+  "DRAFT",
+  "SENT",
+  "PENDING",
+  "PARTIAL",
+  "PAID",
+  "OVERDUE",
+  "CANCELLED",
+]);
+
 
 // ==========================================
 // GET ALL INVOICES
@@ -18,9 +29,6 @@ const getOrganizationId = (req) => {
 export const getAllInvoices = async (req, res) => {
   try {
     const organizationId = getOrganizationId(req);
-
-    console.log("Organization ID:", organizationId);
-    console.log("Query Parameters:", req.query);
 
     if (!organizationId) {
       return res.status(401).json({
@@ -32,6 +40,7 @@ export const getAllInvoices = async (req, res) => {
     const {
       status,
       search,
+      clientId,
       page = 1,
       limit = 10,
     } = req.query;
@@ -48,62 +57,77 @@ export const getAllInvoices = async (req, res) => {
 
     // Optional status filter
     if (status && status.toUpperCase() !== "ALL") {
-      where.status = status.toUpperCase();
+      const normalizedStatus = status.toUpperCase();
+      if (!invoiceStatuses.has(normalizedStatus)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid invoice status",
+        });
+      }
+      where.status = normalizedStatus;
+    }
+
+    if (clientId) {
+      where.clientId = clientId;
     }
 
     // Optional search
     if (search) {
-      where.invoiceNumber = {
-        contains: search,
-        mode: "insensitive",
-      };
+      where.OR = [
+        {
+          invoiceNumber: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+        {
+          client: {
+            name: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+        },
+        {
+          client: {
+            companyName: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+        },
+      ];
     }
 
-    console.log("Where Clause:", where);
+    const Invoices = await prisma.invoice.findMany({
+  // where: {
+  //   ...where,
+  //   status: {
+  //     notIn: ["PAID", "CANCELLED"],
+  //   },
+  // },
+  include: {
+    client: true,
+    payments: true,
+  },
+  skip: (pageNumber - 1) * limitNumber,
+  take: limitNumber,
+  orderBy: {
+    dueDate: "asc",
+  },
+});
 
-    console.log("Finding invoices with pagination:")
-    const data = await Promise.all([
-      prisma.invoice.findMany({
-        where,
-
-        include: {
-          client: true,
-          payments: true,
-        },
-
-        skip: (pageNumber - 1) * limitNumber,
-        take: limitNumber,
-
-        orderBy: {
-          dueDate: "asc",
-        },
-      }),
-  
-
-      prisma.invoice.count({
-        where,
-      }),
-    ]);
-
-    console.log("Invoices fetched:", data);
-    return res.status(200).json({
-      success: true,
-      total: data[1],
-      page: pageNumber,
-      limit: limitNumber,
-      data: data[0],
-    });
+return res.status(200).json({
+  success: true,
+  page: pageNumber,
+  limit: limitNumber,
+  data: Invoices,
+});
 
   } catch (error) {
-    console.error("GET ALL INVOICES ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch invoices",
-      error: error.message, // keep while debugging
-    });
+    console.error("GET ALL INVOICES ERROR:", error);  
   }
-};
+}
 
 // ==========================================
 // GET SINGLE INVOICE
@@ -130,8 +154,25 @@ export const getInvoice = async (req, res) => {
 
       include: {
         client: true,
-        payments: true,
-        escalationLogs: true,
+        payments: {
+          orderBy: {
+            paidAt: "desc",
+          },
+        },
+        escalationLogs: {
+          orderBy: {
+            sentAt: "desc",
+          },
+        },
+        reminderConfig: true,
+        reminders: {
+          include: {
+            rule: true,
+          },
+          orderBy: {
+            scheduledAt: "asc",
+          },
+        },
       },
     });
 
@@ -177,22 +218,47 @@ export const createInvoice = async (req, res) => {
     const {
       invoiceNumber,
       amount,
+      subtotal,
+      tax,
+      discount,
+      issueDate,
       dueDate,
-      // status,
       notes,
       clientId,
     } = req.body;
 
     if (
-      !invoiceNumber ||
       amount === undefined ||
+      !Number.isFinite(Number(amount)) ||
+      Number(amount) < 0 ||
       !dueDate ||
       !clientId
     ) {
       return res.status(400).json({
         success: false,
         message:
-          "invoiceNumber, amount, dueDate and clientId are required",
+          "A valid amount, dueDate and clientId are required",
+      });
+    }
+
+    for (const [field, value] of Object.entries({ subtotal, tax, discount })) {
+      if (value !== undefined && (!Number.isFinite(Number(value)) || Number(value) < 0)) {
+        return res.status(400).json({
+          success: false,
+          message: `${field} must be a valid non-negative number`,
+        });
+      }
+    }
+
+    const parsedDueDate = new Date(dueDate);
+    const parsedIssueDate = issueDate ? new Date(issueDate) : new Date();
+    if (
+      Number.isNaN(parsedDueDate.getTime()) ||
+      Number.isNaN(parsedIssueDate.getTime())
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid issueDate and dueDate values are required",
       });
     }
 
@@ -213,18 +279,21 @@ export const createInvoice = async (req, res) => {
 
     const invoice = await prisma.invoice.create({
       data: {
-        invoiceNumber,
+        invoiceNumber:
+          invoiceNumber?.trim() ||
+          `INV-${new Date().getUTCFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`,
         amount: Number(amount),
-        dueDate: new Date(dueDate),
-        // status: status || "PENDING",
+        ...(subtotal !== undefined && { subtotal: Number(subtotal) }),
+        ...(tax !== undefined && { tax: Number(tax) }),
+        ...(discount !== undefined && { discount: Number(discount) }),
+        issueDate: parsedIssueDate,
+        dueDate: parsedDueDate,
         notes,
         clientId,
         organizationId,
       },
     });
-    console.log("Invoice created:", invoice);
-    const reminder = await createRemindersForInvoice(invoice);
-  console.log("Reminders created for invoice:", reminder);
+    await createRemindersForInvoice(invoice);
     return res.status(201).json({
       success: true,
       message: "Invoice created successfully",
@@ -233,6 +302,13 @@ export const createInvoice = async (req, res) => {
 
   } catch (error) {
     console.error("CREATE INVOICE ERROR:", error);
+
+    if (error.code === "P2002") {
+      return res.status(409).json({
+        success: false,
+        message: "Invoice number already exists",
+      });
+    }
 
     return res.status(500).json({
       success: false,
@@ -258,22 +334,72 @@ export const updateInvoice = async (req, res) => {
         organizationId,
       },
     });
-
+    console.log(existingInvoice);
     if (!existingInvoice) {
       return res.status(404).json({
         success: false,
         message: "Invoice not found",
       });
     }
-
+    if(existingInvoice.status === "PAID" || existingInvoice.status === "CANCELLED") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot update a PAID or CANCELLED invoice",
+      });
+    }
     const {
       invoiceNumber,
       amount,
+      subtotal,
+      tax,
+      discount,
+      issueDate,
       dueDate,
       status,
       notes,
       clientId,
     } = req.body;
+
+    if (
+      status !== undefined &&
+      !invoiceStatuses.has(String(status).toUpperCase())
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid invoice status",
+      });
+    }
+
+    if (
+      amount !== undefined &&
+      (!Number.isFinite(Number(amount)) || Number(amount) < 0)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invoice amount must be a valid non-negative number",
+      });
+    }
+
+    for (const [field, value] of Object.entries({ subtotal, tax, discount })) {
+      if (value !== undefined && (!Number.isFinite(Number(value)) || Number(value) < 0)) {
+        return res.status(400).json({
+          success: false,
+          message: `${field} must be a valid non-negative number`,
+        });
+      }
+    }
+
+    const parsedIssueDate = issueDate === undefined ? undefined : new Date(issueDate);
+    const parsedDueDate = dueDate === undefined ? undefined : new Date(dueDate);
+    if (
+      (parsedIssueDate && Number.isNaN(parsedIssueDate.getTime())) ||
+      (parsedDueDate && Number.isNaN(parsedDueDate.getTime()))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Issue and due dates must be valid dates",
+      });
+    }
 
     // If client is changed, verify new client
     if (clientId) {
@@ -306,12 +432,17 @@ export const updateInvoice = async (req, res) => {
           amount: Number(amount),
         }),
 
-        ...(dueDate !== undefined && {
-          dueDate: new Date(dueDate),
-        }),
+        ...(issueDate !== undefined && { issueDate: parsedIssueDate }),
+        ...(dueDate !== undefined && { dueDate: parsedDueDate }),
+
+        ...(subtotal !== undefined && { subtotal: Number(subtotal) }),
+
+        ...(tax !== undefined && { tax: Number(tax) }),
+
+        ...(discount !== undefined && { discount: Number(discount) }),
 
         ...(status !== undefined && {
-          status,
+          status: String(status).toUpperCase(),
         }),
 
         ...(notes !== undefined && {
@@ -364,10 +495,16 @@ export const deleteInvoice = async (req, res) => {
         message: "Invoice not found",
       });
     }
-
+     if(existingInvoice.status === "PAID" || existingInvoice.status === "CANCELLED") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot delete a PAID or CANCELLED invoice",
+      });
+    }
+    console.log("Deleting invoice:", invoice);
     await prisma.invoice.delete({
       where: {
-        id,
+        id: invoice.id,
       },
     });
 
@@ -398,10 +535,11 @@ export const updateStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!status) {
+    const normalizedStatus = String(status || "").toUpperCase();
+    if (!invoiceStatuses.has(normalizedStatus)) {
       return res.status(400).json({
         success: false,
-        message: "Status is required",
+        message: "A valid invoice status is required",
       });
     }
 
@@ -418,14 +556,19 @@ export const updateStatus = async (req, res) => {
         message: "Invoice not found",
       });
     }
-
+   if(existingInvoice.status === "PAID" || existingInvoice.status === "CANCELLED") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot update a PAID or CANCELLED invoice",
+      });
+    }
     const updatedInvoice = await prisma.invoice.update({
       where: {
         id,
       },
 
       data: {
-        status,
+        status: normalizedStatus,
       },
     });
 
@@ -456,12 +599,7 @@ export const markPaid = async (req, res) => {
     const organizationId = getOrganizationId(req);
     const { id } = req.params;
 
-    const {
-      amount,
-      paymentMethod,
-      transactionId,
-      notes,
-    } = req.body;
+    const { amount, method = "MANUAL" } = req.body;
 
     const invoice = await prisma.invoice.findFirst({
       where: {
@@ -478,32 +616,40 @@ export const markPaid = async (req, res) => {
     }
 
     await prisma.$transaction(async (tx) => {
+      const payments = await tx.payment.findMany({
+        where: { invoiceId: id },
+      });
+      const paidAmount = payments.reduce(
+        (total, payment) => total + Number(payment.amountPaid || 0),
+        0
+      );
+      const remainingAmount = Math.max(Number(invoice.amount) - paidAmount, 0);
+      const paymentAmount = amount === undefined
+        ? remainingAmount
+        : Number(amount);
+
+      if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+        throw new Error("A valid remaining payment amount is required");
+      }
+      if (paymentAmount > remainingAmount) {
+        throw new Error("Payment amount exceeds the invoice balance");
+      }
+      if (paymentAmount < remainingAmount) {
+        throw new Error("Mark-paid amount must cover the invoice balance");
+      }
 
       await tx.payment.create({
         data: {
           invoiceId: id,
-
-          amount:
-            amount !== undefined
-              ? Number(amount)
-              : Number(invoice.amount),
-
-          paymentMethod,
-          transactionId,
-          notes,
+          amountPaid: paymentAmount,
+          method,
         },
       });
 
       await tx.invoice.update({
-        where: {
-          id,
-        },
-
-        data: {
-          status: "PAID",
-        },
+        where: { id },
+        data: { status: "PAID" },
       });
-
     });
 
     return res.status(200).json({
@@ -513,6 +659,13 @@ export const markPaid = async (req, res) => {
 
   } catch (error) {
     console.error("MARK PAID ERROR:", error);
+
+    if (error.message.includes("payment amount") || error.message.includes("Mark-paid amount")) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
 
     return res.status(500).json({
       success: false,
@@ -532,14 +685,13 @@ export const markPartial = async (req, res) => {
     const organizationId = getOrganizationId(req);
     const { id } = req.params;
 
-    const {
-      amount,
-      paymentMethod,
-      transactionId,
-      notes,
-    } = req.body;
+    const { amount, method = "MANUAL" } = req.body;
 
-    if (!amount || Number(amount) <= 0) {
+    if (
+      amount === undefined ||
+      !Number.isFinite(Number(amount)) ||
+      Number(amount) <= 0
+    ) {
       return res.status(400).json({
         success: false,
         message: "Valid payment amount is required",
@@ -559,26 +711,36 @@ export const markPartial = async (req, res) => {
         message: "Invoice not found",
       });
     }
-
+   if(existingInvoice.status === "PAID" || existingInvoice.status === "CANCELLED") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot mark a PAID or CANCELLED invoice as partial",
+      });
+    }
     await prisma.$transaction(async (tx) => {
+      const payments = await tx.payment.findMany({
+        where: { invoiceId: id },
+      });
+      const paidAmount = payments.reduce(
+        (total, payment) => total + Number(payment.amountPaid || 0),
+        0
+      );
+      const updatedPaidAmount = paidAmount + Number(amount);
+      if (updatedPaidAmount > Number(invoice.amount)) {
+        throw new Error("Payment amount exceeds the invoice balance");
+      }
 
       await tx.payment.create({
         data: {
           invoiceId: id,
-          amount: Number(amount),
-          paymentMethod,
-          transactionId,
-          notes,
+          amountPaid: Number(amount),
+          method,
         },
       });
-
       await tx.invoice.update({
-        where: {
-          id,
-        },
-
+        where: { id },
         data: {
-          status: "PARTIAL",
+          status: updatedPaidAmount >= Number(invoice.amount) ? "PAID" : "PARTIAL",
         },
       });
 
@@ -591,6 +753,13 @@ export const markPartial = async (req, res) => {
 
   } catch (error) {
     console.error("MARK PARTIAL ERROR:", error);
+
+    if (error.message.includes("Payment amount")) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
 
     return res.status(500).json({
       success: false,

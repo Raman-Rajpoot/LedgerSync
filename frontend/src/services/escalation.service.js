@@ -4,98 +4,94 @@ const API_BASE =
   import.meta.env.VITE_API_URL ||
   "http://localhost:5000/v1/api/escalation";
 
-function authHeaders() {
+const authHeaders = () => {
   const token = localStorage.getItem("token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
-  return token
-    ? { Authorization: `Bearer ${token}` }
-    : {};
-}
-
-
-// ==========================================
-// GET ALL ESCALATIONS
-// ==========================================
-
-const getAllEscalations = async () => {
+const getRules = async () => {
   const { data } = await axios.get(API_BASE, {
     headers: authHeaders(),
   });
-
   return data;
 };
 
+const getRule = async (id) => {
+  const { data } = await axios.get(`${API_BASE}/${id}`, {
+    headers: authHeaders(),
+  });
+  return data;
+};
 
-// ==========================================
-// GET SINGLE ESCALATION
-// ==========================================
+const createRule = async (rule) => {
+  const { data } = await axios.post(API_BASE, rule, {
+    headers: authHeaders(),
+  });
+  return data;
+};
 
-const getEscalation = async (id) => {
+const updateRule = async (id, rule) => {
+  const { data } = await axios.patch(`${API_BASE}/${id}`, rule, {
+    headers: authHeaders(),
+  });
+  return data;
+};
+
+const toggleRule = async (id) => {
+  const { data } = await axios.patch(
+    `${API_BASE}/toggle/${id}`,
+    {},
+    { headers: authHeaders() }
+  );
+  return data;
+};
+
+const deleteRule = async (id) => {
+  const { data } = await axios.delete(`${API_BASE}/${id}`, {
+    headers: authHeaders(),
+  });
+  return data;
+};
+
+const getRuleStatistics = async () => {
+  const { data } = await axios.get(`${API_BASE}/statistics`, {
+    headers: authHeaders(),
+  });
+  return data;
+};
+
+const getHistory = async (params = {}) => {
+  const { data } = await axios.get(`${API_BASE}/history`, {
+    params,
+    headers: authHeaders(),
+  });
+  return data;
+};
+
+const getHistoryEntry = async (id) => {
+  const { data } = await axios.get(`${API_BASE}/history/${id}`, {
+    headers: authHeaders(),
+  });
+  return data;
+};
+
+const getInvoiceHistory = async (invoiceId, params = {}) => {
   const { data } = await axios.get(
-    `${API_BASE}/${id}`,
-    {
-      headers: authHeaders(),
-    }
+    `${API_BASE}/invoices/${invoiceId}/history`,
+    { params, headers: authHeaders() }
   );
-
   return data;
 };
-
-
-// ==========================================
-// CREATE ESCALATION
-// ==========================================
-
-const createEscalation = async (escalationData) => {
-  const { data } = await axios.post(
-    API_BASE,
-    escalationData,
-    {
-      headers: authHeaders(),
-    }
-  );
-
-  return data;
-};
-
-
-// ==========================================
-// UPDATE ESCALATION
-// ==========================================
-
-const updateEscalation = async (id, escalationData) => {
-  const { data } = await axios.put(
-    `${API_BASE}/${id}`,
-    escalationData,
-    {
-      headers: authHeaders(),
-    }
-  );
-
-  return data;
-};
-
-
-// ==========================================
-// DELETE ESCALATION
-// ==========================================
-
-const deleteEscalation = async (id) => {
-  const { data } = await axios.delete(
-    `${API_BASE}/${id}`,
-    {
-      headers: authHeaders(),
-    }
-  );
-
-  return data;
-};
-
 
 export default {
-  getAllEscalations,
-  getEscalation,
-  createEscalation,
-  updateEscalation,
-  deleteEscalation,
+  getRules,
+  getRule,
+  createRule,
+  updateRule,
+  toggleRule,
+  deleteRule,
+  getRuleStatistics,
+  getHistory,
+  getHistoryEntry,
+  getInvoiceHistory,
 };

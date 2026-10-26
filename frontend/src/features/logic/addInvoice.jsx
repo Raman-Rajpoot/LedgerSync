@@ -8,7 +8,7 @@ import {
   // FiIndianRupee,
   FiPlus,
 } from "react-icons/fi";
-import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import "../style/addInvoice.css";
 import getAllClient from "../../services/client.service";
@@ -16,7 +16,9 @@ import invoiceService from "../../services/invoice.service";
 
 function AddInvoice() {
   const navigate = useNavigate();
+  const { id } = useParams();
   const [searchParams] = useSearchParams();
+  const isEditing = Boolean(id);
 
   const token = localStorage.getItem("token");
 
@@ -28,6 +30,7 @@ function AddInvoice() {
 
   const [loadingClients, setLoadingClients] =
     useState(true);
+  const [loadingInvoice, setLoadingInvoice] = useState(isEditing);
 
   const [saving, setSaving] = useState(false);
 
@@ -73,6 +76,42 @@ function AddInvoice() {
 
     fetchClients();
   }, [organisationId, token]);
+
+  useEffect(() => {
+    if (!token || !id) return;
+
+    const fetchInvoice = async () => {
+      try {
+        setLoadingInvoice(true);
+        const response = await invoiceService.getInvoice(id);
+        if (!response.success || !response.data) {
+          throw new Error(response.message || "Invoice not found");
+        }
+
+        const invoice = response.data;
+        const subtotal = Number(invoice.subtotal ?? invoice.amount ?? 0);
+        const tax = Number(invoice.tax ?? 0);
+        const discount = Number(invoice.discount ?? 0);
+        setForm({
+          clientId: invoice.clientId || "",
+          invoiceNumber: invoice.invoiceNumber || "",
+          issueDate: new Date(invoice.issueDate).toISOString().split("T")[0],
+          dueDate: new Date(invoice.dueDate).toISOString().split("T")[0],
+          amount: String(subtotal),
+          tax: subtotal > 0 ? String((tax / subtotal) * 100) : "0",
+          discount: subtotal > 0 ? String((discount / subtotal) * 100) : "0",
+          notes: invoice.notes || "",
+        });
+      } catch (err) {
+        console.error("Failed to load invoice:", err);
+        setError(err.response?.data?.message || err.message || "Unable to load invoice.");
+      } finally {
+        setLoadingInvoice(false);
+      }
+    };
+
+    fetchInvoice();
+  }, [id, token]);
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -145,6 +184,17 @@ function AddInvoice() {
       return;
     }
 
+    if (
+      !Number.isFinite(tax) ||
+      !Number.isFinite(discount) ||
+      tax < 0 ||
+      discount < 0 ||
+      discount > 100
+    ) {
+      setError("Tax must be non-negative and discount must be between 0 and 100%.");
+      return;
+    }
+
     if (!form.dueDate) {
       setError(
         "Please select a due date."
@@ -158,63 +208,32 @@ function AddInvoice() {
       setSaving(true);
 
 
-      /*
-        Replace this endpoint with your
-        actual invoice backend endpoint.
-      */
-
-      const response =
-        await invoiceService.createInvoice({
-
-              clientId:
-                form.clientId,
-
-              organizationId:
-                organisationId,
-
-              invoiceNumber:
-                form.invoiceNumber ||
-                undefined,
-
-              issueDate:
-                form.issueDate,
-
-              dueDate:
-                form.dueDate,
-
-              amount:
-                total,
-
-              subtotal:
-                amount,
-
-              // tax:
-              //   taxAmount,
-
-              // discount:
-              //   discountAmount,
-
-              notes:
-                form.notes,
-            });
-          
-      
-
+      const invoiceData = {
+        clientId: form.clientId,
+        invoiceNumber: form.invoiceNumber.trim() || undefined,
+        issueDate: form.issueDate,
+        dueDate: form.dueDate,
+        amount: total,
+        subtotal: amount,
+        tax: taxAmount,
+        discount: discountAmount,
+        notes: form.notes,
+      };
+      const response = isEditing
+        ? await invoiceService.updateInvoice(id, invoiceData)
+        : await invoiceService.createInvoice(invoiceData);
 
       if (!response.success){
 
         throw new Error(
           response?.message ||
-          "Failed to create invoice"
+          (isEditing ? "Failed to update invoice" : "Failed to create invoice")
         );
       }
 
 
-  ;
-
-
       setSuccess(
-        "Invoice created successfully!"
+        isEditing ? "Invoice updated successfully!" : "Invoice created successfully!"
       );
 
 
@@ -271,11 +290,11 @@ function AddInvoice() {
           </Link>
 
           <h1>
-            Create Invoice
+            {isEditing ? "Edit Invoice" : "Create Invoice"}
           </h1>
 
           <p>
-            Create a new invoice for your client.
+            {isEditing ? "Update invoice details." : "Create a new invoice for your client."}
           </p>
 
         </div>
@@ -293,6 +312,10 @@ function AddInvoice() {
           {error}
         </div>
 
+      )}
+
+      {loadingInvoice && (
+        <div className="invoice-alert">Loading invoice details...</div>
       )}
 
       {success && (
@@ -549,6 +572,8 @@ function AddInvoice() {
                   <input
                     type="number"
                     min="0"
+                    step="0.01"
+                    step="0.01"
                     name="amount"
                     placeholder="0"
                     value={
@@ -575,6 +600,7 @@ function AddInvoice() {
                   <input
                     type="number"
                     min="0"
+                    step="0.01"
                     name="tax"
                     value={
                       form.tax
@@ -604,6 +630,7 @@ function AddInvoice() {
                   <input
                     type="number"
                     min="0"
+                    max="100"
                     name="discount"
                     value={
                       form.discount
@@ -805,14 +832,14 @@ function AddInvoice() {
             <button
               type="submit"
               className="save-invoice-btn"
-              disabled={saving}
+              disabled={saving || loadingInvoice || loadingClients}
             >
 
               <FiSave />
 
               {saving
-                ? "Creating..."
-                : "Create Invoice"}
+                ? (isEditing ? "Saving..." : "Creating...")
+                : (isEditing ? "Save Changes" : "Create Invoice")}
 
             </button>
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import ClientCard from "../../components/logic/ClientCard";
+import ClientCard from "../../components/logic/clientCard.jsx"; ;
 import "../style/client.css";
 import getAllClient from "../../services/client.service";
 import { Link, Navigate } from "react-router-dom";

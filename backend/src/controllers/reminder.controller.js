@@ -47,33 +47,45 @@ async function getOrgIntegration(organizationId, provider) {
 // Mailer
 // -----------------------------
 async function getMailer(organizationId) {
-  const config = await getOrgIntegration(organizationId, "smtp");
+  const config = await getOrgIntegration(organizationId, "EMAIL");
+  const port = Number(config?.port || process.env.SMTP_PORT || 587);
+  const user = config?.username || config?.user || process.env.SMTP_USER;
+  const pass = config?.password || config?.pass || process.env.SMTP_PASS;
 
-  return nodemailer.createTransport({
+  return {
+    transporter: nodemailer.createTransport({
     host: config?.host || process.env.SMTP_HOST,
-    port: Number(config?.port || process.env.SMTP_PORT),
-    secure: Number(config?.port || process.env.SMTP_PORT) === 465,
+    port,
+    secure: port === 465,
     auth: {
-      user: config?.user || process.env.SMTP_USER,
-      pass: config?.pass || process.env.SMTP_PASS,
+      user,
+      pass,
     },
-  });
+    }),
+    from: config?.fromEmail || process.env.SMTP_FROM_EMAIL || process.env.SMTP_FROM || user,
+  };
 }
 
 // -----------------------------
 // Twilio
 // -----------------------------
 async function getTwilioClient(organizationId) {
-  const config = await getOrgIntegration(organizationId, "twilio");
+  const config = await getOrgIntegration(organizationId, "TWILIO");
 
   return {
     client: twilio(
       config?.accountSid || process.env.TWILIO_ACCOUNT_SID,
       config?.authToken || process.env.TWILIO_AUTH_TOKEN
     ),
-    smsFrom: config?.smsFrom || process.env.TWILIO_SMS_FROM,
+    smsFrom:
+      config?.phoneNumber ||
+      config?.smsFrom ||
+      process.env.TWILIO_SMS_FROM,
     whatsappFrom:
-      config?.whatsappFrom || process.env.TWILIO_WHATSAPP_FROM,
+      config?.whatsappNumber ||
+      config?.whatsappFrom ||
+      config?.phoneNumber ||
+      process.env.TWILIO_WHATSAPP_FROM,
   };
 }
 
@@ -98,7 +110,6 @@ async function getOrgInvoice(invoiceId, organizationId) {
 async function logEscalation({
   invoiceId,
   channel,
-  recipient,
   subject = null,
   content,
   status,
@@ -109,12 +120,10 @@ async function logEscalation({
     data: {
       invoiceId,
       channel,
-      recipient,
       subject,
       content,
       status,
-      providerMessageId: providerId,
-      error,
+      response: error || providerId,
     },
   });
 }
@@ -165,10 +174,10 @@ export const sendEmail = async (req, res) => {
       });
     }
 
-    const transporter = await getMailer(organizationId);
+    const { transporter, from } = await getMailer(organizationId);
 
     const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM,
+      from,
       to: recipient,
       subject,
       text: message,
@@ -405,7 +414,7 @@ export const getAllReminders = async (req, res) => {
     const {
       page = 1,
       limit = 10,
-      enabled,
+      status,
       search,
     } = req.query;
 
@@ -419,20 +428,26 @@ export const getAllReminders = async (req, res) => {
       100
     );
 
-    const where = {
-      invoice: {
-        organizationId,
-      },
-    };
+    const where = { organizationId };
 
 
-    // --------------------------------------
-    // ENABLED FILTER
-    // --------------------------------------
+    if (status !== undefined) {
+      const validStatuses = [
+        "PENDING",
+        "PROCESSING",
+        "SENT",
+        "FAILED",
+        "CANCELLED",
+      ];
 
-    if (enabled !== undefined) {
-      where.enabled =
-        enabled === "true";
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid reminder status",
+        });
+      }
+
+      where.status = status;
     }
 
 
@@ -442,18 +457,17 @@ export const getAllReminders = async (req, res) => {
     // --------------------------------------
 
     if (search) {
-      where.invoice = {
-        organizationId,
-
-        OR: [
-          {
+      where.OR = [
+        {
+          invoice: {
             invoiceNumber: {
               contains: search,
               mode: "insensitive",
             },
           },
-
-          {
+        },
+        {
+          invoice: {
             client: {
               name: {
                 contains: search,
@@ -461,8 +475,8 @@ export const getAllReminders = async (req, res) => {
               },
             },
           },
-        ],
-      };
+        },
+      ];
     }
 
 
@@ -481,6 +495,15 @@ export const getAllReminders = async (req, res) => {
                 client: true,
               },
             },
+            rule: {
+              include: {
+                template: {
+                  select: {
+                    content: true,
+                  },
+                },
+              },
+            },
           },
 
           skip:
@@ -489,9 +512,7 @@ export const getAllReminders = async (req, res) => {
 
           take: limitNumber,
 
-          orderBy: {
-            updatedAt: "asc",
-          },
+          orderBy: { scheduledAt: "asc" },
         }),
 
         prisma.reminder.count({
@@ -560,7 +581,13 @@ export const getClientReminders = async (req, res) => {
       },
       include: {
         rule: {
-          select: { id: true, name: true, stage: true, channel: true },
+          select: {
+            id: true,
+            name: true,
+            stage: true,
+            channel: true,
+            template: { select: { content: true } },
+          },
         },
         invoice: {
           include: {
@@ -620,20 +647,26 @@ export const getReminder = async (
       await prisma.reminder.findFirst({
         where: {
           id,
-
-          invoice: {
-            organizationId,
-          },
+          organizationId,
         },
 
         include: {
+          rule: {
+            include: {
+              template: {
+                select: {
+                  content: true,
+                },
+              },
+            },
+          },
           invoice: {
             include: {
               client: true,
               payments: true,
               escalationLogs: {
                 orderBy: {
-                  createdAt: "desc",
+                  sentAt: "desc",
                 },
               },
             },

@@ -1,221 +1,60 @@
-import { prisma } from '../db/db.js';
-import nodemailer from "nodemailer";
-import twilio from "twilio";
-import crypto from "crypto";
-
-
+import { prisma } from "../db/db.js";
 
 const getOrgId = (req) => req.user?.organizationId ?? req.organizationId;
 
-// -----------------------------
-// Escalation Logger
-// -----------------------------
-async function logEscalation({
-  invoiceId,
-  channel,
-  recipient,
-  subject = null,
-  content,
-  status,
-  providerId = null,
-  error = null,
-}) {
-  return prisma.escalationLog.create({
-    data: {
-      invoiceId,
-      channel,
-      recipient,
-      subject,
-      content,
-      status,
-      providerMessageId: providerId,
-      error,
+const parsePage = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const logInclude = {
+  invoice: {
+    include: {
+      client: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          companyName: true,
+        },
+      },
     },
-  });
-}
- 
-// ---------------------------------------------------------------------------
-// GET /escalations
-// ---------------------------------------------------------------------------
+  },
+};
 
 export const getAllEscalations = async (req, res) => {
+  const organizationId = getOrgId(req);
+
+  if (!organizationId) {
+    return res.status(401).json({
+      success: false,
+      message: "Missing organization context.",
+    });
+  }
+
   try {
-    const organizationId = getOrgId(req);
-
-    if (!organizationId) {
-      return res.status(401).json({
-        success: false,
-        message: "Missing organization context.",
-      });
-    }
-
-    const {
-      channel,
-      invoiceId,
-      page = "1",
-      limit = "20",
-    } = req.query;
-
-    const pageNumber = Math.max(parseInt(page, 10), 1);
-    const limitNumber = Math.min(Math.max(parseInt(limit, 10), 1), 100);
-    const skip = (pageNumber - 1) * limitNumber;
-
+    const page = parsePage(req.query.page, 1);
+    const limit = Math.min(parsePage(req.query.limit, 20), 100);
     const where = {
-      invoice: {
-        organizationId,
-      },
+      invoice: { organizationId },
+      ...(req.query.channel && { channel: req.query.channel }),
+      ...(req.query.status && { status: req.query.status }),
+      ...(req.query.invoiceId && { invoiceId: req.query.invoiceId }),
     };
-
-    if (channel) where.channel = channel;
-    if (invoiceId) where.invoiceId = invoiceId;
 
     const [logs, total] = await prisma.$transaction([
       prisma.escalationLog.findMany({
         where,
-        include: {
-          invoice: {
-            include: {
-              client: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                  companyName: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: {
-          sentAt: "desc",
-        },
-        skip,
-        take: limitNumber,
-      }),
-
-      prisma.escalationLog.count({
-        where,
-      }),
-    ]);
-
-    return res.status(200).json({
-      success: true,
-      message: "Escalations fetched successfully.",
-      data: logs,
-      pagination: {
-        total,
-        page: pageNumber,
-        limit: limitNumber,
-        totalPages: Math.ceil(total / limitNumber),
-        hasNextPage: pageNumber * limitNumber < total,
-        hasPreviousPage: pageNumber > 1,
-      },
-    });
-  } catch (error) {
-    console.error("Error fetching escalations:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch escalations.",
-    });
-  }
-};
-
-// ---------------------------------------------------------------------------
-// GET /escalations/:id
-// ---------------------------------------------------------------------------
-export const getEscalationById = async (req, res) => {
-  try {
-    const organizationId = getOrgId(req);
-    const { id } = req.params;
-
-    const log = await prisma.escalationLog.findFirst({
-      where: { id, invoice: { organizationId } },
-      include: { invoice: { include: { client: true } } },
-    });
-
-    if (!log) {
-      return res.status(404).json({ error: "Escalation not found" });
-    }
-
-    return res.status(200).json({ data: log });
-  } catch (error) {
-    console.error("getEscalationById error:", error);
-    return res.status(500).json({ error: "Failed to fetch escalation" });
-  }
-};
-
-
-// ---------------------------------------------------------------------------
-// GET /invoices/:invoiceId/escalations
-// ---------------------------------------------------------------------------
-export const getInvoiceEscalations = async (req, res) => {
-  try {
-    const organizationId = getOrgId(req);
-    const { invoiceId } = req.params;
-
-    // Validate invoiceId
-    if (!invoiceId) {
-      return res.status(400).json({
-        success: false,
-        error: "Invoice ID is required",
-      });
-    }
-
-    // Ensure invoice belongs to organization
-    const invoice = await getOrgInvoice(invoiceId, organizationId);
-
-    if (!invoice) {
-      return res.status(404).json({
-        success: false,
-        error: "Invoice not found for this organization",
-      });
-    }
-
-    // Query params
-    const page = Math.max(Number(req.query.page) || 1, 1);
-    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
-    const skip = (page - 1) * limit;
-
-    const { channel, status } = req.query;
-
-    // Dynamic filters
-    const where = {
-      invoiceId,
-      ...(channel && { channel }),
-      ...(status && { status }),
-    };
-
-    // Fetch data + total count
-    const [logs, total] = await Promise.all([
-      prisma.escalationLog.findMany({
-        where,
-        orderBy: {
-          sentAt: "desc",
-        },
-        skip,
+        include: logInclude,
+        orderBy: { sentAt: "desc" },
+        skip: (page - 1) * limit,
         take: limit,
-        select: {
-          id: true,
-          channel: true,
-          content: true,
-          status: true,
-          sentAt: true,
-          deliveredAt: true,
-          openedAt: true,
-          repliedAt: true,
-          metadata: true,
-        },
       }),
-
-      prisma.escalationLog.count({
-        where,
-      }),
+      prisma.escalationLog.count({ where }),
     ]);
 
     return res.status(200).json({
       success: true,
-      message: "Escalation history fetched successfully.",
       data: logs,
       pagination: {
         total,
@@ -227,11 +66,110 @@ export const getInvoiceEscalations = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("getInvoiceEscalations error:", error);
-
+    console.error("Error fetching escalation history:", error);
     return res.status(500).json({
       success: false,
-      error: "Failed to fetch invoice escalations.",
+      message: "Failed to fetch escalation history.",
+    });
+  }
+};
+
+export const getEscalationById = async (req, res) => {
+  const organizationId = getOrgId(req);
+
+  if (!organizationId) {
+    return res.status(401).json({
+      success: false,
+      message: "Missing organization context.",
+    });
+  }
+
+  try {
+    const log = await prisma.escalationLog.findFirst({
+      where: {
+        id: req.params.id,
+        invoice: { organizationId },
+      },
+      include: logInclude,
+    });
+
+    if (!log) {
+      return res.status(404).json({
+        success: false,
+        message: "Escalation history entry not found.",
+      });
+    }
+
+    return res.status(200).json({ success: true, data: log });
+  } catch (error) {
+    console.error("Error fetching escalation history entry:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch escalation history entry.",
+    });
+  }
+};
+
+export const getInvoiceEscalations = async (req, res) => {
+  const organizationId = getOrgId(req);
+
+  if (!organizationId) {
+    return res.status(401).json({
+      success: false,
+      message: "Missing organization context.",
+    });
+  }
+
+  try {
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        id: req.params.invoiceId,
+        organizationId,
+      },
+      select: { id: true },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({
+        success: false,
+        message: "Invoice not found for this organization.",
+      });
+    }
+
+    const page = parsePage(req.query.page, 1);
+    const limit = Math.min(parsePage(req.query.limit, 20), 100);
+    const where = {
+      invoiceId: invoice.id,
+      ...(req.query.channel && { channel: req.query.channel }),
+      ...(req.query.status && { status: req.query.status }),
+    };
+    const [logs, total] = await prisma.$transaction([
+      prisma.escalationLog.findMany({
+        where,
+        orderBy: { sentAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.escalationLog.count({ where }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: logs,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPreviousPage: page > 1,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching invoice escalation history:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch invoice escalation history.",
     });
   }
 };

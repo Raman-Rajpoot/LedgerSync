@@ -24,12 +24,38 @@ const authHeaders = () => {
 // ==========================================
 
 const getAllReminders = async (params = {}) => {
-  const { data } = await axios.get(API_BASE, {
-    params,
-    headers: authHeaders(),
-  });
+  const limit = 100;
+  const requestPage = async (page) => {
+    const { data } = await axios.get(API_BASE, {
+      params: { ...params, page, limit },
+      headers: authHeaders(),
+    });
+    return data;
+  };
 
-  return data;
+  const firstPage = await requestPage(1);
+  if (!firstPage?.success || !Array.isArray(firstPage.data)) {
+    return firstPage;
+  }
+
+  const totalPages = Math.max(Number(firstPage.totalPages) || 1, 1);
+  if (totalPages === 1) return firstPage;
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, index) =>
+      requestPage(index + 2)
+    )
+  );
+
+  return {
+    ...firstPage,
+    data: [
+      ...firstPage.data,
+      ...remainingPages.flatMap((page) =>
+        page?.success && Array.isArray(page.data) ? page.data : []
+      ),
+    ],
+  };
 };
 
 

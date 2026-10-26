@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   FiSearch,
   FiPlus,
@@ -21,187 +21,66 @@ import invoiceService from "../../services/invoice.service";
 function Invoice() {
   const token = localStorage.getItem("token");
 
-  const organisationId =
-    localStorage.getItem("organizationId") ||
-    localStorage.getItem("organisationId");
-
   const [invoices, setInvoices] = useState([]);
-
   const [loading, setLoading] = useState(true);
-
   const [error, setError] = useState("");
-
   const [search, setSearch] = useState("");
-
   const [status, setStatus] = useState("All");
-
   const [openMenu, setOpenMenu] = useState(null);
-
   const [page, setPage] = useState(1);
-  /* ==========================================
-     AUTH
-  ========================================== */
-
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-
+  const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState(null);
+  const limit = 10;
   /* ==========================================
      FETCH INVOICES
   ========================================== */
 
-  useEffect(() => {
-    fetchInvoices();
-  }, [organisationId, status, search, page]);
-
-
-  const fetchInvoices = async () => {
-
+  const fetchInvoices = useCallback(async () => {
     try {
-
       setLoading(true);
       setError("");
-
-
       const response = await invoiceService.getAllInvoices({
         status,
-        clientId: organisationId,
         search,
         page,
+        limit,
       });
 
-     console.log("Invoice fetch response:", response);
-      if (!response.data.success) {
-        throw new Error(
-          "Failed to fetch invoices"
-        );
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || "Failed to fetch invoices");
       }
- 
-    console.log(response.data);
-
-
-      const invoiceData =
-        Array.isArray(response.data.data)
-          ? response.data.data
-          : [];
-
-
-      setInvoices(invoiceData);
-      console.log("done...");
+      setInvoices(Array.isArray(response.data.data) ? response.data.data : []);
+      setTotal(Number(response.data.total) || 0);
+      try {
+        const statistics = await invoiceService.getInvoiceStatistics();
+        if (statistics.success) setStats(statistics.data);
+      } catch (statisticsError) {
+        console.error("Invoice statistics error:", statisticsError);
+      }
     } catch (err) {
-
-      console.error(
-        "Invoice fetch error:",
-        err
-      );
-
-      setError(
-        "Failed to load invoices."
-      );
-
+      console.error("Invoice fetch error:", err);
+      setError(err.response?.data?.message || err.message || "Failed to load invoices.");
     } finally {
-
       setLoading(false);
-
     }
+  }, [limit, page, search, status]);
 
-  };
-
-
-  /* ==========================================
-     SEARCH + FILTER
-  ========================================== */
-
-  const filteredInvoices = useMemo(() => {
-  
-    return invoices?.filter((invoice) => {
-
-      const invoiceNumber =
-        invoice?.invoiceNumber ||
-        invoice?.number ||
-        invoice?.id ||
-        "";
-
-      const clientName =
-        invoice?.client?.name ||
-        invoice?.clientName ||
-        "";
-
-      const searchValue =
-        search.toLowerCase().trim();
-
-
-      const matchesSearch =
-        invoiceNumber
-          .toString()
-          .toLowerCase()
-          .includes(searchValue) ||
-
-        clientName
-          .toLowerCase()
-          .includes(searchValue);
-
-
-      const invoiceStatus =
-        invoice.status || "Pending";
-
-
-      const matchesStatus =
-        status === "All"
-          ? true
-          : invoiceStatus === status;
-
-
-      return (
-        matchesSearch &&
-        matchesStatus
-      );
-
-    });
-
-  }, [invoices, search, status]);
+  useEffect(() => {
+    if (!token) return undefined;
+    const timer = window.setTimeout(fetchInvoices, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchInvoices, token]);
 
 
   /* ==========================================
      STATS
   ========================================== */
 
-  const totalInvoices =
-    invoices.length;
-
-
   const paidInvoices =
-    invoices.filter(
-      (invoice) =>
-        invoice.status === "Paid" ||
-        invoice.status === "PAID"
-    ).length;
-
-
-  const pendingInvoices =
-    invoices.filter(
-      (invoice) =>
-        invoice.status === "Pending" ||
-        invoice.status === "PENDING"
-    ).length;
-
-
-  const overdueInvoices =
-    invoices.filter(
-      (invoice) =>
-        invoice.status === "Overdue" ||
-        invoice.status === "OVERDUE"
-    ).length;
-
-
-  const totalAmount =
-    invoices.reduce(
-      (total, invoice) =>
-        total +
-        Number(invoice.amount || 0),
-      0
-    );
+    Number(stats?.paidInvoices) || 0;
+  const pendingInvoices = Number(stats?.pendingInvoices) || 0;
+  const overdueInvoices = Number(stats?.overdueInvoices) || 0;
+  const totalAmount = Number(stats?.totalAmount) || 0;
 
 
   /* ==========================================
@@ -224,7 +103,7 @@ function Invoice() {
     try {
 
       const response =
-        await invoiceService.deleteInvoice(invoiceId)
+        await invoiceService.deleteInvoice(invoiceId);
 
 
       if (!response.success) {
@@ -241,8 +120,8 @@ function Invoice() {
         )
       );
 
-
-      setOpenMenu(null);
+        setTotal((current) => Math.max(0, current - 1));
+        setOpenMenu(null);
 
     } catch (err) {
 
@@ -307,6 +186,15 @@ function Invoice() {
 
   };
 
+  const formatStatus = (value) =>
+    (value || "PENDING")
+      .toLowerCase()
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
 
   /* ==========================================
      PAGE
@@ -372,7 +260,7 @@ function Invoice() {
             </p>
 
             <h3>
-              {totalInvoices}
+              {Number(stats?.totalInvoices) || total}
             </h3>
 
           </div>
@@ -494,18 +382,20 @@ function Invoice() {
             type="text"
             placeholder="Search invoice or client..."
             value={search}
-            onChange={(e) =>
-              setSearch(e.target.value)
-            }
+            onChange={(e) => {
+              setPage(1);
+              setSearch(e.target.value);
+            }}
           />
 
 
           {search && (
 
             <button
-              onClick={() =>
-                setSearch("")
-              }
+              onClick={() => {
+                setPage(1);
+                setSearch("");
+              }}
             >
               ×
             </button>
@@ -517,9 +407,10 @@ function Invoice() {
 
         <select
           value={status}
-          onChange={(e) =>
-            setStatus(e.target.value)
-          }
+          onChange={(e) => {
+            setPage(1);
+            setStatus(e.target.value);
+          }}
           className="invoice-filter"
         >
 
@@ -527,17 +418,21 @@ function Invoice() {
             All Status
           </option>
 
-          <option value="Paid">
+          <option value="PAID">
             Paid
           </option>
 
-          <option value="Pending">
+          <option value="PENDING">
             Pending
           </option>
 
-          <option value="Overdue">
+          <option value="OVERDUE">
             Overdue
           </option>
+          <option value="PARTIAL">Partial</option>
+          <option value="DRAFT">Draft</option>
+          <option value="SENT">Sent</option>
+          <option value="CANCELLED">Cancelled</option>
 
         </select>
 
@@ -643,7 +538,7 @@ function Invoice() {
 
         {!loading &&
           !error &&
-          filteredInvoices.length === 0 && (
+          invoices.length === 0 && (
 
             <div className="invoice-state">
 
@@ -658,7 +553,9 @@ function Invoice() {
               </h3>
 
               <p>
-                Create your first invoice to get started.
+                {search || status !== "All"
+                  ? "Try changing the search or status filter."
+                  : "Create your first invoice to get started."}
               </p>
 
 
@@ -682,11 +579,11 @@ function Invoice() {
 
         {!loading &&
           !error &&
-          filteredInvoices.length > 0 && (
+          invoices.length > 0 && (
 
             <div className="invoice-list">
 
-              {filteredInvoices.map(
+              {invoices.map(
                 (invoice) => {
 
                   const invoiceNumber =
@@ -730,7 +627,7 @@ function Invoice() {
 
                           <small>
                             {formatDate(
-                              invoice.createdAt
+                              invoice.issueDate
                             )}
                           </small>
 
@@ -790,7 +687,7 @@ function Invoice() {
                           )}`}
                         >
 
-                          {invoiceStatus}
+                          {formatStatus(invoiceStatus)}
 
                         </span>
 
@@ -837,12 +734,13 @@ function Invoice() {
                             </Link>
 
 
-                            <Link
-                              to={`/invoice/${invoice.id}/edit`}
-                              onClick={() =>
-                                setOpenMenu(null)
-                              }
-                            >
+                           {invoice.status !== "PAID" && invoice.status !== "CANCELLED" && (
+                             <Link
+                               to={`/invoice/${invoice.id}/edit`}
+                               onClick={() =>
+                                 setOpenMenu(null)
+                               }
+                             >
 
                               <FiEdit />
 
@@ -850,7 +748,8 @@ function Invoice() {
 
                             </Link>
 
-
+               )}
+               {invoice.status !== "PAID" && invoice.status !== "CANCELLED" && (
                             <button
                               className="delete-action"
                               onClick={() =>
@@ -865,10 +764,35 @@ function Invoice() {
                               Delete
 
                             </button>
-
+               )}
                           </div>
 
                         )}
+
+        {!loading && !error && total > limit && (
+                        <div className="invoice-pagination">
+                          <span>
+                            Showing {(page - 1) * limit + 1}–
+                            {Math.min(page * limit, total)} of {total}
+                          </span>
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => setPage((current) => Math.max(1, current - 1))}
+                              disabled={page === 1}
+                            >
+                              Previous
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPage((current) => current + 1)}
+                              disabled={page * limit >= total}
+                            >
+                              Next
+                            </button>
+                          </div>
+                        </div>
+        )}
 
                       </div>
 

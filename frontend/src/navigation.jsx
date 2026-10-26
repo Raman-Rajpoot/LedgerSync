@@ -32,6 +32,7 @@ import Integrations from "./features/logic/integrations.jsx";
 import Activity from "./features/logic/activity";
 import Profile from "./features/logic/profile";
 import AddInvoice from "./features/logic/addInvoice.jsx";
+import InvoiceDetails from "./features/logic/invoiceDetails.jsx";
 
 
 /* ==========================================
@@ -124,6 +125,16 @@ function Navigation() {
           <AddInvoice  />
         }
       />
+
+     <Route
+       path="/invoice/:id"
+       element={<InvoiceDetails />}
+     />
+
+     <Route
+       path="/invoice/:id/edit"
+       element={<AddInvoice />}
+     />
 
       {/* =================================
           PAYMENTS

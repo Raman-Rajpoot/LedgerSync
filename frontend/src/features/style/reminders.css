@@ -265,7 +265,7 @@
 .reminders-table-wrapper table {
   width: 100%;
 
-  min-width: 950px;
+  min-width: 1100px;
 
   border-collapse: collapse;
 }
@@ -488,16 +488,38 @@
   font-weight: 600;
 }
 
-.reminder-status.active {
+.reminder-status.sent {
   background: #e7f8ef;
 
   color: #25a567;
 }
 
-.reminder-status.paused {
+.reminder-status.pending,
+.reminder-status.processing {
   background: #fff4df;
 
   color: #d3971d;
+}
+
+.reminder-status.failed {
+  background: #ffeaea;
+
+  color: #d64c4c;
+}
+
+.reminder-status.cancelled {
+  background: #f1eff4;
+
+  color: #777281;
+}
+
+.reminder-message {
+  display: block;
+  max-width: 300px;
+  overflow: hidden;
+  color: #777281;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 

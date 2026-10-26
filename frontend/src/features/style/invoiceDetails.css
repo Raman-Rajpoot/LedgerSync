@@ -3,6 +3,41 @@
   min-height: 100vh;
 }
 
+.invoice-history-list {
+  padding: 0 18px 12px;
+}
+
+.invoice-history-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0eff4;
+  color: #514d5d;
+  font-size: 10px;
+}
+
+.invoice-history-row:last-child {
+  border-bottom: 0;
+}
+
+.invoice-history-row strong,
+.invoice-history-row span {
+  display: block;
+}
+
+.invoice-history-row div > span,
+.invoice-history-row small {
+  margin-top: 4px;
+  color: #9793a3;
+}
+
+.invoice-history-row p {
+  margin: 7px 0 0;
+  white-space: pre-wrap;
+}
+
 
 /* =========================================
    TOP

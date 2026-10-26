@@ -21,7 +21,7 @@ const authHeaders = () => {
 
 // ==========================================
 // GET ALL TEMPLATES
-// GET /v1/api/templates
+// GET /v1/api/template
 //
 // Supports:
 // channel
@@ -32,24 +32,48 @@ const authHeaders = () => {
 // limit
 // ==========================================
 
-const getAllTemplates = async ({page}) => {
-  const { data } = await axios.get(API_BASE, {
-    params: { page },
+const getAllTemplates = async (filters = {}) => {
+  const firstPage = await axios.get(API_BASE, {
+    params: { ...filters, page: 1, limit: 100 },
     headers: authHeaders(),
   });
+  const result = firstPage.data;
 
-  return data;
+  if (!result.success || !Array.isArray(result.data)) {
+    return result;
+  }
+
+  const totalPages = Number(result.totalPages) || 1;
+  const pages = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, index) =>
+      axios.get(API_BASE, {
+        params: { ...filters, page: index + 2, limit: 100 },
+        headers: authHeaders(),
+      })
+    )
+  );
+  const remainingTemplates = pages.flatMap(({ data }) => {
+    if (!data.success || !Array.isArray(data.data)) {
+      throw new Error("Failed to load all template pages.");
+    }
+    return data.data;
+  });
+
+  return {
+    ...result,
+    data: [...result.data, ...remainingTemplates],
+  };
 };
 
 
 // ==========================================
 // GET SINGLE TEMPLATE
-// GET /v1/api/templates/:id
+// GET /v1/api/template/getTemplate/:id
 // ==========================================
 
 const getTemplate = async (id) => {
   const { data } = await axios.get(
-    `${API_BASE}/${id}`,
+    `${API_BASE}/getTemplate/${id}`,
     {
       headers: authHeaders(),
     }

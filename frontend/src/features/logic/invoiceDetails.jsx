@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   FiArrowLeft,
   FiEdit,
@@ -8,11 +8,7 @@ import {
   FiCalendar,
   FiFileText,
   FiCheckCircle,
-  FiClock,
   FiAlertCircle,
-  FiPause,
-  FiPlay,
-  FiSend,
 } from "react-icons/fi";
 
 import {
@@ -40,36 +36,15 @@ function InvoiceDetails() {
   const [actionLoading, setActionLoading] =
     useState(false);
 
-  const [remindersEnabled, setRemindersEnabled] =
-    useState(true);
-
-
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-
   /* =========================================
      FETCH INVOICE
   ========================================= */
 
-  useEffect(() => {
-    fetchInvoice();
-  }, [id]);
-
-
-  const fetchInvoice = async () => {
+  const fetchInvoice = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-
-      /*
-        Replace with your actual backend
-        endpoint if different.
-      */
-
-      const response = await invoiceService.getInvoice(id)
-
+      const response = await invoiceService.getInvoice(id);
 
       if (!response.success) {
         throw new Error(
@@ -78,35 +53,32 @@ function InvoiceDetails() {
       }
 
 
-      const data =
-        response || {};
-
-
+      const data = response.data;
+      if (!data) throw new Error("Invoice not found");
       setInvoice(data);
-
-
-      if (
-        data.reminderConfig
-      ) {
-        setRemindersEnabled(
-          data.reminderConfig.enabled
-        );
-      }
 
     } catch (err) {
 
       console.error(err);
 
-      setError(
-        "Unable to load invoice."
-      );
+      setError(err.response?.data?.message || err.message || "Unable to load invoice.");
 
     } finally {
 
       setLoading(false);
 
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (!token) return undefined;
+    const timer = window.setTimeout(fetchInvoice, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchInvoice, token]);
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
 
 
   /* =========================================
@@ -114,7 +86,10 @@ function InvoiceDetails() {
   ========================================= */
 
   const handleDelete = async () => {
-
+    if(invoice?.status === "PAID" || invoice?.status === "CANCELLED") {
+      alert("Cannot delete a paid invoice.");
+      return;
+    }
     const confirmed =
       window.confirm(
         "Are you sure you want to delete this invoice?"
@@ -163,14 +138,14 @@ function InvoiceDetails() {
   ========================================= */
 
   const handleMarkPaid = async () => {
-
+   
     try {
 
       setActionLoading(true);
 
 
       const response =
-        await invoiceService.markInvoicePaid(id);
+        await invoiceService.markPaid(id);
 
 
       if (!response.success) {
@@ -196,78 +171,6 @@ function InvoiceDetails() {
 
     }
   };
-
-
-  /* =========================================
-     TOGGLE REMINDERS
-  ========================================= */
-
-  const handleReminderToggle =
-    async () => {
-
-      const newValue =
-        !remindersEnabled;
-
-
-      try {
-
-        setActionLoading(true);
-
-
-        /*
-          ReminderConfig endpoint.
-
-          Connect this to your actual
-          ReminderConfig API.
-        */
-
-        const response =
-          await fetch(
-            `/v1/api/reminders/${id}/toggle`,
-            {
-              method: "PATCH",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-
-                Authorization:
-                  `Bearer ${token}`,
-              },
-
-              body: JSON.stringify({
-                enabled:
-                  newValue,
-              }),
-            }
-          );
-
-
-        if (!response.ok) {
-          throw new Error(
-            "Unable to update reminders"
-          );
-        }
-
-
-        setRemindersEnabled(
-          newValue
-        );
-
-      } catch (err) {
-
-        console.error(err);
-
-        alert(
-          "Unable to update reminder settings."
-        );
-
-      } finally {
-
-        setActionLoading(false);
-
-      }
-    };
 
 
   /* =========================================
@@ -302,17 +205,9 @@ function InvoiceDetails() {
   };
 
 
-  const getStatusClass = (
-    status
-  ) => {
-
-    return (
-      status ||
-      "Pending"
-    )
-      .toLowerCase();
-
-  };
+  const getStatusClass = (value) => (value || "PENDING").toLowerCase();
+  const formatStatus = (value) =>
+    (value || "PENDING").toLowerCase().replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 
 
   /* =========================================
@@ -357,6 +252,10 @@ function InvoiceDetails() {
         <p>
           {error}
         </p>
+
+        <button type="button" className="back-invoices-btn" onClick={fetchInvoice}>
+          Try Again
+        </button>
 
         <Link
           to="/invoices"
@@ -426,6 +325,8 @@ function InvoiceDetails() {
 
         <div className="invoice-details-actions">
 
+        { invoice && invoice.status == "PENDING" || invoice.status == "PARTIAL" || invoice.status == "OVERDUE" ? (
+
           <Link
             to={`/invoice/${id}/edit`}
             className="invoice-edit-btn"
@@ -434,8 +335,8 @@ function InvoiceDetails() {
             Edit
           </Link>
 
-
-          {status !== "Paid" && (
+        ) : null }
+          {status.toUpperCase() !== "PAID" && (
 
             <button
               className="mark-paid-btn"
@@ -453,6 +354,7 @@ function InvoiceDetails() {
           )}
 
 
+        { invoice && invoice.status !== "PAID" && invoice.status !== "CANCELLED" ? (
           <button
             className="invoice-delete-btn"
             onClick={
@@ -464,7 +366,7 @@ function InvoiceDetails() {
           >
             <FiTrash2 />
           </button>
-
+): null }
         </div>
 
       </div>
@@ -501,7 +403,7 @@ function InvoiceDetails() {
                   status
                 )}`}
               >
-                {status}
+                {formatStatus(status)}
               </span>
 
             </div>
@@ -510,7 +412,6 @@ function InvoiceDetails() {
             <p>
               Created on{" "}
               {formatDate(
-                invoice.createdAt ||
                 invoice.issueDate
               )}
             </p>
@@ -624,6 +525,9 @@ function InvoiceDetails() {
 
             )}
 
+            {client.project && <p>Project: {client.project}</p>}
+            {client.customNotes && <p>{client.customNotes}</p>}
+
           </div>
 
         </div>
@@ -679,7 +583,7 @@ function InvoiceDetails() {
 
               <strong
                 className={
-                  status === "Overdue"
+                  status.toUpperCase() === "OVERDUE"
                     ? "overdue-text"
                     : ""
                 }
@@ -689,6 +593,16 @@ function InvoiceDetails() {
                 )}
               </strong>
 
+            </div>
+
+            <div>
+              <span>Created</span>
+              <strong>{formatDate(invoice.createdAt)}</strong>
+            </div>
+
+            <div>
+              <span>Last Updated</span>
+              <strong>{formatDate(invoice.updatedAt)}</strong>
             </div>
 
           </div>
@@ -731,8 +645,7 @@ function InvoiceDetails() {
 
             <strong>
               {formatMoney(
-                invoice.subtotal ||
-                invoice.amount
+                invoice.subtotal ?? invoice.amount
               )}
             </strong>
 
@@ -747,7 +660,7 @@ function InvoiceDetails() {
 
             <strong>
               {formatMoney(
-                invoice.tax
+                invoice.tax ?? 0
               )}
             </strong>
 
@@ -762,7 +675,7 @@ function InvoiceDetails() {
 
             <strong>
               - {formatMoney(
-                invoice.discount
+                invoice.discount ?? 0
               )}
             </strong>
 
@@ -803,9 +716,7 @@ function InvoiceDetails() {
 
             <div className="info-card-icon purple">
 
-              {remindersEnabled
-                ? <FiPlay />
-                : <FiPause />}
+              <FiFileText />
 
             </div>
 
@@ -816,124 +727,78 @@ function InvoiceDetails() {
                 Automatic Reminders
               </h2>
 
-              <p>
-                LedgerSync reminder configuration
-              </p>
+              <p>Scheduled invoice reminders</p>
 
             </div>
 
           </div>
 
 
-          <button
-            className={`reminder-toggle ${
-              remindersEnabled
-                ? "enabled"
-                : ""
-            }`}
-            onClick={
-              handleReminderToggle
-            }
-            disabled={
-              actionLoading
-            }
-          >
-
-            <span></span>
-
-            {remindersEnabled
-              ? "Enabled"
-              : "Paused"}
-
-          </button>
-
         </div>
-
 
         <div className="reminder-information">
-
-
-          <div className="reminder-item">
-
-            <span>
-              Reminder Level
-            </span>
-
-            <strong>
-              {reminderConfig.reminderLevel ??
-                0}
-            </strong>
-
-          </div>
-
-
-          <div className="reminder-item">
-
-            <span>
-              Last Reminder
-            </span>
-
-            <strong>
-              {formatDate(
-                reminderConfig.lastReminderAt
-              )}
-            </strong>
-
-          </div>
-
-
-          <div className="reminder-item">
-
-            <span>
-              Next Reminder
-            </span>
-
-            <strong>
-              {formatDate(
-                reminderConfig.nextReminderAt
-              )}
-            </strong>
-
-          </div>
-
-
-          <div className="reminder-item">
-
-            <span>
-              Status
-            </span>
-
-            <strong
-              className={
-                remindersEnabled
-                  ? "reminder-active"
-                  : "reminder-paused"
-              }
-            >
-              {remindersEnabled
-                ? "Automatically running"
-                : "Paused"}
-            </strong>
-
-          </div>
-
-        </div>
-
-
-        <div className="reminder-explanation">
-
-          <FiSend />
-
           <p>
-            LedgerSync will automatically check
-            this invoice and send the appropriate
-            reminder according to your reminder
-            rules and templates.
+            {reminderConfig.enabled === false
+              ? "Automatic reminders are paused."
+              : invoice.reminders?.length
+                ? `${invoice.reminders.length} reminder(s) scheduled.`
+                : "No reminders are currently scheduled."}
           </p>
-
         </div>
+
+        {invoice.reminders?.length > 0 && (
+          <div className="invoice-history-list">
+            {invoice.reminders.map((reminder) => (
+              <div className="invoice-history-row" key={reminder.id}>
+                <div>
+                  <strong>{reminder.rule?.name || reminder.rule?.stage || "Reminder"}</strong>
+                  <span>{formatDate(reminder.scheduledAt)}</span>
+                </div>
+                <span>{formatStatus(reminder.status)}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
       </div>
+
+      {invoice.payments?.length > 0 && (
+        <div className="invoice-notes-card">
+          <div className="details-section-heading">
+            <div><h2>Payment History</h2></div>
+          </div>
+          <div className="invoice-history-list">
+            {invoice.payments.map((payment) => (
+              <div className="invoice-history-row" key={payment.id}>
+                <div>
+                  <strong>{formatMoney(payment.amountPaid)}</strong>
+                  <span>{payment.method || "Payment"} · {formatDate(payment.paidAt)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {invoice.escalationLogs?.length > 0 && (
+        <div className="invoice-notes-card">
+          <div className="details-section-heading">
+            <div><h2>Reminder Delivery History</h2></div>
+          </div>
+          <div className="invoice-history-list">
+            {invoice.escalationLogs.map((log) => (
+              <div className="invoice-history-row" key={log.id}>
+                <div>
+                  <strong>{log.subject || log.channel}</strong>
+                  <span>{formatDate(log.sentAt)} · {formatStatus(log.status)}</span>
+                  <p>{log.content}</p>
+                  {log.response && <small>{log.response}</small>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
 
       {/* =====================================

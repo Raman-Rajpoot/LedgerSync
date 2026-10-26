@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   FiSearch,
   FiPlus,
@@ -14,19 +14,13 @@ import {
   FiX,
 } from "react-icons/fi";
 
-import {
-  Navigate,
-  Link,
-} from "react-router-dom";
+import { Navigate } from "react-router-dom";
 
 import "../style/templates.css";
 import templateService from "../../services/template.service";
 function Templates() {
 
   const token = localStorage.getItem("token");
-
-  const organizationId =
-    localStorage.getItem("organizationId");
 
   const [templates, setTemplates] =
     useState([]);
@@ -46,12 +40,14 @@ function Templates() {
   const [stage, setStage] =
     useState("All");
 
+  const [status, setStatus] =
+    useState("All");
+
   const [showModal, setShowModal] =
     useState(false);
 
   const [editingTemplate, setEditingTemplate] =
     useState(null);
-const [page, setPage] = useState(1);
   const [form, setForm] = useState({
     name: "",
     channel: "EMAIL",
@@ -61,35 +57,16 @@ const [page, setPage] = useState(1);
     isActive: true,
   });
 
-
-  if (!token) {
-    return (
-      <Navigate
-        to="/login"
-        replace
-      />
-    );
-  }
-
-
   /* =========================================
      FETCH TEMPLATES
   ========================================= */
 
-  useEffect(() => {
-    fetchTemplates();
-  }, [organizationId]);
-
-
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async () => {
+    if (!token) return;
 
     try {
-
-      setLoading(true);
-      setError("");
-
       const response =
-        await templateService.getAllTemplates({page});
+        await templateService.getAllTemplates();
 
 
       if (!response.success) {
@@ -110,7 +87,6 @@ const [page, setPage] = useState(1);
           ? data
           : []
       );
-    setPage(page + 1);
     } catch (err) {
 
       console.error(err);
@@ -124,7 +100,20 @@ const [page, setPage] = useState(1);
       setLoading(false);
 
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    Promise.resolve().then(fetchTemplates);
+  }, [fetchTemplates]);
+
+  if (!token) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+      />
+    );
+  }
 
 
   /* =========================================
@@ -213,10 +202,7 @@ const [page, setPage] = useState(1);
         Boolean(editingTemplate);
 
 
-const payload = {
-  ...form,
-  organizationId,
-};
+const payload = { ...form };
 
 const response = isEditing
   ? await templateService.updateTemplate(
@@ -376,6 +362,11 @@ const response = isEditing
             ?.toLowerCase()
             .includes(
               search.toLowerCase()
+            ) ||
+          template.subject
+            ?.toLowerCase()
+            .includes(
+              search.toLowerCase()
             );
 
 
@@ -390,11 +381,16 @@ const response = isEditing
           template.stage ===
             stage;
 
+        const matchesStatus =
+          status === "All" ||
+          template.isActive === (status === "Active");
+
 
         return (
           matchesSearch &&
           matchesChannel &&
-          matchesStage
+          matchesStage &&
+          matchesStatus
         );
 
       }
@@ -711,6 +707,16 @@ const response = isEditing
 
         </select>
 
+        <select
+          aria-label="Filter by status"
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+        >
+          <option value="All">All Statuses</option>
+          <option value="Active">Active</option>
+          <option value="Inactive">Inactive</option>
+        </select>
+
       </div>
 
 
@@ -738,9 +744,11 @@ const response = isEditing
 
           <button
             className="template-refresh"
-            onClick={
-              fetchTemplates
-            }
+            onClick={() => {
+              setLoading(true);
+              setError("");
+              fetchTemplates();
+            }}
           >
             <FiRefreshCw />
           </button>
@@ -771,9 +779,11 @@ const response = isEditing
             </h3>
 
             <button
-              onClick={
-                fetchTemplates
-              }
+              onClick={() => {
+                setLoading(true);
+                setError("");
+                fetchTemplates();
+              }}
             >
               Try Again
             </button>

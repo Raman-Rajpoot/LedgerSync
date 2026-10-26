@@ -547,6 +547,47 @@
   color: #e55353;
 }
 
+.invoice-status-badge.partial,
+.invoice-status-badge.sent {
+  background: #e8f1ff;
+  color: #4a83d1;
+}
+
+.invoice-status-badge.draft,
+.invoice-status-badge.cancelled {
+  background: #f0eef5;
+  color: #777284;
+}
+
+.invoice-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 17px;
+  border-top: 1px solid #eeeef3;
+  color: #777284;
+  font-size: 10px;
+}
+
+.invoice-pagination div {
+  display: flex;
+  gap: 7px;
+}
+
+.invoice-pagination button {
+  padding: 6px 10px;
+  border: 1px solid #e7e5ed;
+  border-radius: 6px;
+  background: white;
+  color: #5e596d;
+  cursor: pointer;
+}
+
+.invoice-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 
 /* =========================================
    ACTION

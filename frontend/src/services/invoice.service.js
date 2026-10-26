@@ -24,7 +24,7 @@ function authHeaders() {
 // Get All Invoices
 // ==========================================
 
-const getAllInvoices = async ({ status, clientId, search, page }) => {
+const getAllInvoices = async ({ status, clientId, search, page, limit }) => {
   const data = await axios.get(
     `${API_BASE}`,
     {
@@ -34,6 +34,7 @@ const getAllInvoices = async ({ status, clientId, search, page }) => {
         clientId,
         search,
         page,
+        limit,
       }
     }
   );
@@ -144,7 +145,7 @@ const updateStatus = async (id, status) => {
   }
 
   const { data } = await axios.patch(
-    `${API_BASE}/updateStatus/${id}`,
+    `${API_BASE}/${id}/status`,
     {
       status,
     },
@@ -161,14 +162,14 @@ const updateStatus = async (id, status) => {
 // Mark Invoice Paid
 // ==========================================
 
-const markPaid = async (id) => {
+const markPaid = async (id, payment = {}) => {
   if (!id) {
     throw new Error("Invoice ID is required");
   }
 
   const { data } = await axios.patch(
     `${API_BASE}/${id}/paid`,
-    {},
+    payment,
     {
       headers: authHeaders(),
     }
@@ -188,7 +189,7 @@ const markPartial = async (id, amount) => {
   }
 
   const { data } = await axios.patch(
-    `${API_BASE}/markPartial/${id}`,
+    `${API_BASE}/${id}/partial`,
     {
       amount,
     },

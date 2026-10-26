@@ -1,73 +1,152 @@
+
 .client-card {
-  display: grid;
-  grid-template-columns: 1fr 1.4fr 2fr auto; 
-  align-items: center;
-  padding: 1.25em; 
-  background-color: rgba(255, 255, 255, 0.814);
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); /* Softer shadow */
-  transition: all 0.3s ease;
-  margin: 1em;
-}
-
-.client-card:hover {
-  border-color: #2dd4bf; /* Teal 400 */
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-
-.client-info {
   display: flex;
-  
   align-items: center;
-  gap: 2em;
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+  padding: 17px 20px;
+  background: #ffffff;
+  border: 1px solid #eceaf2;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(30, 25, 60, 0.025);
+  box-sizing: border-box;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.client-row:hover .client-card {
+  border-color: #d9d0fb;
+  box-shadow: 0 7px 18px rgba(73, 50, 145, 0.08);
+  transform: translateY(-1px);
 }
 
 .client-avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background-color: #e4ece9e6;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
-  color: #648b69;
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border: 1px solid #e7e1fb;
+  border-radius: 12px;
+  background: #f3f0ff;
+  color: #6d45e8;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+}
+
+.client-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.client-primary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+  min-width: 0;
+}
+
+.company {
+  overflow: hidden;
+  margin: 0;
+  color: #19172b;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.25px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .client-name {
-  font-weight: 600;
-  color: #0f172a;
-  font-size: 1.1rem;
-   margin: 3px;
-  padding:0px;
+  margin: 4px 0 0;
+  color: #625e70;
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
-.client-company {
-  color: #64748b;
-  font-size: 1rem;
-  margin: 0;
+.client-mail {
+  min-width: 0;
+  color: #898596;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
-.client-mail{
-     color: #64748b;
-  font-size: 0.89rem;
-  margin: 0px;
+
+.client-primary .company {
+  flex: 0 1 auto;
 }
+
+.client-primary .client-mail {
+  flex: 0 1 auto;
+}
+
 .client-status {
-  padding: 0.8em;
-  border-radius: 1rem;
-  font-size: 0.75rem;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 20px;
+  font-size: 10px;
   font-weight: 700;
+  letter-spacing: 0.35px;
+  line-height: 1.3;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  white-space: nowrap;
 }
 
 .status-active {
-  background-color: #dcfce7;
-  color: #15803d;
+  background: #dcfce7;
+  color: #166534;
+  border-color: #c8f0d4;
 }
 
 .status-overdue {
-  background-color: #fee2e2;
-  color: #b91c1c;
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fbd0d0;
+}
+
+@media (max-width: 480px) {
+  .client-card {
+    gap: 12px;
+    padding: 13px 14px;
+  }
+
+  .client-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+  }
+
+  .company {
+    font-size: 14px;
+  }
+
+  .client-primary {
+    gap: 2px 8px;
+  }
+
+  .client-status {
+    padding: 4px 8px;
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 360px) {
+  .client-card {
+    gap: 9px;
+    padding: 12px 10px;
+  }
+
+  .client-avatar {
+    width: 38px;
+    height: 38px;
+  }
 }

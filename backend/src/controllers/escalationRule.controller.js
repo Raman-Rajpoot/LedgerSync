@@ -95,6 +95,12 @@ export const createRule = async (req, res) => {
   try {
 
     const organizationId = getOrgId(req);
+    if (!organizationId) {
+      return res.status(401).json({
+        success: false,
+        message: "Missing organization context.",
+      });
+    }
 
     const {
       name,
@@ -104,6 +110,25 @@ export const createRule = async (req, res) => {
       channel,
       templateId,
     } = req.body;
+
+    if (!name || !stage || !channel || templateId === undefined || !Number.isFinite(Number(daysOffset))) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, stage, days offset, channel and template are required.",
+      });
+    }
+
+    const template = await prisma.template.findFirst({
+      where: { id: templateId, organizationId },
+      select: { id: true },
+    });
+
+    if (!template) {
+      return res.status(400).json({
+        success: false,
+        message: "Template not found for this organization.",
+      });
+    }
 
     const rule = await prisma.escalationRule.create({
       data: {
@@ -152,6 +177,12 @@ export const updateRule = async (req, res) => {
   try {
 
     const organizationId = getOrgId(req);
+    if (!organizationId) {
+      return res.status(401).json({
+        success: false,
+        message: "Missing organization context.",
+      });
+    }
     const { id } = req.params;
 
     const existing = await prisma.escalationRule.findFirst({
@@ -176,6 +207,27 @@ export const updateRule = async (req, res) => {
       channel,
       templateId,
     } = req.body;
+
+    if (daysOffset !== undefined && !Number.isFinite(Number(daysOffset))) {
+      return res.status(400).json({
+        success: false,
+        message: "Days offset must be a number.",
+      });
+    }
+
+    if (templateId !== undefined) {
+      const template = await prisma.template.findFirst({
+        where: { id: templateId, organizationId },
+        select: { id: true },
+      });
+
+      if (!template) {
+        return res.status(400).json({
+          success: false,
+          message: "Template not found for this organization.",
+        });
+      }
+    }
 
     const rule = await prisma.escalationRule.update({
       where: {
