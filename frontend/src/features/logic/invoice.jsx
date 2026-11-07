@@ -15,6 +15,7 @@ import {
 
 import { Link, Navigate } from "react-router-dom";
 
+import ConfirmationDialog from "../../components/logic/ConfirmationDialog";
 import "../style/invoice.css";
 import invoiceService from "../../services/invoice.service";
 
@@ -30,6 +31,7 @@ function Invoice() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState(null);
+  const [confirmation, setConfirmation] = useState(null);
   const limit = 10;
   /* ==========================================
      FETCH INVOICES
@@ -87,52 +89,31 @@ function Invoice() {
      DELETE
   ========================================== */
 
-  const handleDelete = async (invoiceId) => {
-
-    const confirmDelete =
-      window.confirm(
-        "Are you sure you want to delete this invoice?"
-      );
-
-
-    if (!confirmDelete) {
-      return;
-    }
-
-
-    try {
-
-      const response =
-        await invoiceService.deleteInvoice(invoiceId);
-
-
-      if (!response.success) {
-        throw new Error(
-          "Delete failed"
-        );
-      }
-
-
-      setInvoices((previous) =>
-        previous.filter(
-          (invoice) =>
-            invoice.id !== invoiceId
-        )
-      );
-
-        setTotal((current) => Math.max(0, current - 1));
-        setOpenMenu(null);
-
-    } catch (err) {
-
-      console.error(err);
-
-      alert(
-        "Unable to delete invoice."
-      );
-
-    }
-
+  const handleDelete = (invoice) => {
+    const invoiceNumber =
+      invoice.invoiceNumber || invoice.number || `INV-${invoice.id}`;
+    setConfirmation({
+      title: `Delete ${invoiceNumber}?`,
+      message: "This invoice will be permanently deleted. This action cannot be undone.",
+      confirmLabel: "Delete invoice",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          const response = await invoiceService.deleteInvoice(invoice.id);
+          if (!response.success) {
+            throw new Error("Delete failed");
+          }
+          setInvoices((previous) =>
+            previous.filter((item) => item.id !== invoice.id)
+          );
+          setTotal((current) => Math.max(0, current - 1));
+          setOpenMenu(null);
+        } catch (err) {
+          console.error(err);
+          alert("Unable to delete invoice.");
+        }
+      },
+    });
   };
 
 
@@ -754,7 +735,7 @@ function Invoice() {
                               className="delete-action"
                               onClick={() =>
                                 handleDelete(
-                                  invoice.id
+                                  invoice
                                 )
                               }
                             >
@@ -808,6 +789,13 @@ function Invoice() {
           )}
 
       </div>
+
+      {confirmation && (
+        <ConfirmationDialog
+          {...confirmation}
+          onCancel={() => setConfirmation(null)}
+        />
+      )}
 
     </div>
 

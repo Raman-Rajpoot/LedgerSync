@@ -10,6 +10,7 @@ import {
   FiSave,
 } from "react-icons/fi";
 
+import ConfirmationDialog from "../../components/logic/ConfirmationDialog";
 import "../style/integrations.css";
 import integrationService from "../../services/integration.service";
 
@@ -44,6 +45,7 @@ function Integrations() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
   const [testing, setTesting] = useState("");
+  const [confirmation, setConfirmation] = useState(null);
 
   /*
    * Fetch integrations when component loads
@@ -235,9 +237,7 @@ function Integrations() {
    * integrationService.deleteIntegration()
    * expects an ID, not an object.
    */
-  const disconnectIntegration = async (
-    type
-  ) => {
+  const disconnectIntegration = (type) => {
     const integration =
       integrations[type];
 
@@ -248,48 +248,33 @@ function Integrations() {
       return;
     }
 
-    const confirmDisconnect =
-      window.confirm(
-        `Disconnect ${type} integration?`
-      );
+    setConfirmation({
+      title: `Disconnect ${type} integration?`,
+      message: `LedgerSync will stop using this ${type} service for reminders until it is connected again.`,
+      confirmLabel: "Disconnect",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          setSaving(type);
+          const response =
+            await integrationService.deleteIntegration(type);
 
-    if (!confirmDisconnect) {
-      return;
-    }
+          if (!response.success) {
+            throw new Error(
+              response.message || "Failed to disconnect"
+            );
+          }
 
-    try {
-      setSaving(type);
-
-      const response =
-        await integrationService.deleteIntegration(
-          type
-        );
-
-      if (!response.success) {
-        throw new Error(
-          response.message ||
-            "Failed to disconnect"
-        );
-      }
-
-      await fetchIntegrations();
-
-      alert(
-        `${type.toUpperCase()} disconnected`
-      );
-    } catch (error) {
-      console.error(
-        "Disconnect integration error:",
-        error
-      );
-
-      alert(
-        error.message ||
-          "Failed to disconnect integration"
-      );
-    } finally {
-      setSaving("");
-    }
+          await fetchIntegrations();
+          alert(`${type.toUpperCase()} disconnected`);
+        } catch (error) {
+          console.error("Disconnect integration error:", error);
+          alert(error.message || "Failed to disconnect integration");
+        } finally {
+          setSaving("");
+        }
+      },
+    });
   };
 
   /*
@@ -763,6 +748,13 @@ function Integrations() {
             or WhatsApp message to a client.
           </p>
         </div>
+
+        {confirmation && (
+          <ConfirmationDialog
+            {...confirmation}
+            onCancel={() => setConfirmation(null)}
+          />
+        )}
 
       </div>
 

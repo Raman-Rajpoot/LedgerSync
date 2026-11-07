@@ -33,6 +33,7 @@ import Activity from "./features/logic/activity";
 import Profile from "./features/logic/profile";
 import AddInvoice from "./features/logic/addInvoice.jsx";
 import InvoiceDetails from "./features/logic/invoiceDetails.jsx";
+import ReminderDetails from "./features/logic/reminderDetails.jsx";
 
 
 /* ==========================================
@@ -153,6 +154,11 @@ function Navigation() {
       <Route
         path="/reminders"
         element={<Reminders />}
+      />
+
+      <Route
+        path="/reminder/:id"
+        element={<ReminderDetails />}
       />
 
 

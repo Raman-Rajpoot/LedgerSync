@@ -1,0 +1,12 @@
+$kind: http-request
+name: ""
+url: http://localhost:8000/
+method: GET
+body:
+  type: json
+  content: "{\r
+
+    \    \"complaint\": \"read a.txt file\"\r
+
+    }"
+order: 1000

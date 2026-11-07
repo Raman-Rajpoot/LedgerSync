@@ -42,3 +42,27 @@ node_modules/
 # Build output
 dist/
 build/
+# IDE settings
+.vscode/
+
+# Postman local configuration
+.postman/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

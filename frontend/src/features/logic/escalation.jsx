@@ -15,6 +15,7 @@ import {
 } from "react-icons/fi";
 import { Navigate } from "react-router-dom";
 
+import ConfirmationDialog from "../../components/logic/ConfirmationDialog";
 import "../style/escalation.css";
 import escalationService from "../../services/escalation.service";
 import templateService from "../../services/template.service";
@@ -67,6 +68,7 @@ function Escalation() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [selectedHistory, setSelectedHistory] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [confirmation, setConfirmation] = useState(null);
 
   const fetchRules = useCallback(async () => {
     setRulesLoading(true);
@@ -210,7 +212,21 @@ function Escalation() {
     }
   };
 
-  const toggleRule = async (rule) => {
+  const toggleRule = (rule) => {
+    if (!rule.isActive) {
+      return updateRuleStatus(rule);
+    }
+
+    setConfirmation({
+      title: `Pause "${rule.name}"?`,
+      message: "This escalation rule will stop running until you activate it again.",
+      confirmLabel: "Pause rule",
+      variant: "warning",
+      onConfirm: () => updateRuleStatus(rule),
+    });
+  };
+
+  const updateRuleStatus = async (rule) => {
     setActionError("");
     try {
       requireSuccess(
@@ -227,22 +243,57 @@ function Escalation() {
     }
   };
 
-  const deleteRule = async (rule) => {
-    if (!window.confirm(`Delete the "${rule.name}" escalation rule?`)) return;
-    setActionError("");
-    try {
-      requireSuccess(
-        await escalationService.deleteRule(rule.id),
-        "Unable to delete escalation rule."
-      );
-      await fetchRules();
-    } catch (requestError) {
-      setActionError(
-        requestError.response?.data?.message ||
-          requestError.message ||
-          "Unable to delete escalation rule."
-      );
-    }
+  const deleteRule = (rule) => {
+    setConfirmation({
+      title: `Delete "${rule.name}"?`,
+      message: "This escalation rule will be permanently deleted. This action cannot be undone.",
+      confirmLabel: "Delete rule",
+      variant: "danger",
+      onConfirm: async () => {
+        setActionError("");
+        try {
+          requireSuccess(
+            await escalationService.deleteRule(rule.id),
+            "Unable to delete escalation rule."
+          );
+
+          setRules((currentRules) =>
+            currentRules.filter((currentRule) => currentRule.id !== rule.id)
+          );
+          setStatistics((currentStatistics) => {
+            if (!currentStatistics) return currentStatistics;
+
+            return {
+              ...currentStatistics,
+              totalRules: Math.max(
+                0,
+                (Number(currentStatistics.totalRules) || 0) - 1
+              ),
+              activeRules: rule.isActive
+                ? Math.max(
+                    0,
+                    (Number(currentStatistics.activeRules) || 0) - 1
+                  )
+                : currentStatistics.activeRules,
+              inactiveRules: rule.isActive
+                ? currentStatistics.inactiveRules
+                : Math.max(
+                    0,
+                    (Number(currentStatistics.inactiveRules) || 0) - 1
+                  ),
+            };
+          });
+
+          await fetchRules();
+        } catch (requestError) {
+          setActionError(
+            requestError.response?.data?.message ||
+              requestError.message ||
+              "Unable to delete escalation rule."
+          );
+        }
+      },
+    });
   };
 
   const showHistoryDetails = async (entry) => {
@@ -764,6 +815,12 @@ function Escalation() {
             </button>
           </div>
         </div>
+      )}
+      {confirmation && (
+        <ConfirmationDialog
+          {...confirmation}
+          onCancel={() => setConfirmation(null)}
+        />
       )}
     </div>
   );

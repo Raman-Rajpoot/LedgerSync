@@ -16,6 +16,7 @@ import {
 
 import { Navigate } from "react-router-dom";
 
+import ConfirmationDialog from "../../components/logic/ConfirmationDialog";
 import "../style/templates.css";
 import templateService from "../../services/template.service";
 function Templates() {
@@ -45,6 +46,7 @@ function Templates() {
 
   const [showModal, setShowModal] =
     useState(false);
+  const [confirmation, setConfirmation] = useState(null);
 
   const [editingTemplate, setEditingTemplate] =
     useState(null);
@@ -242,19 +244,17 @@ const response = isEditing
      DELETE
   ========================================= */
 
-  const deleteTemplate =
-    async (id) => {
+  const deleteTemplate = (template) => {
+    setConfirmation({
+      title: `Delete "${template.name}"?`,
+      message: "This template will be permanently deleted. This action cannot be undone.",
+      confirmLabel: "Delete template",
+      variant: "danger",
+      onConfirm: () => performDeleteTemplate(template.id),
+    });
+  };
 
-      const confirmed =
-        window.confirm(
-          "Delete this template?"
-        );
-
-      if (!confirmed) {
-        return;
-      }
-
-
+  const performDeleteTemplate = async (id) => {
       try {
 
         const response =
@@ -288,16 +288,27 @@ const response = isEditing
 
       }
 
-    };
+  };
 
 
   /* =========================================
      TOGGLE ACTIVE
   ========================================= */
 
-  const toggleTemplate =
-    async (template) => {
+  const toggleTemplate = (template) => {
+    const willPause = template.isActive;
+    setConfirmation({
+      title: willPause ? "Pause this template?" : "Activate this template?",
+      message: willPause
+        ? "This template will stop being used for reminder messages until you activate it again."
+        : "This template will be available for reminder messages again.",
+      confirmLabel: willPause ? "Pause template" : "Activate template",
+      variant: willPause ? "warning" : "primary",
+      onConfirm: () => updateTemplateStatus(template),
+    });
+  };
 
+  const updateTemplateStatus = async (template) => {
       try {
 
         const response =
@@ -341,7 +352,7 @@ const response = isEditing
 
       }
 
-    };
+  };
 
 
   /* =========================================
@@ -945,9 +956,10 @@ const response = isEditing
                     <button
                       title={
                         template.isActive
-                          ? "Deactivate"
+                          ? "Pause"
                           : "Activate"
                       }
+                      aria-label={`${template.isActive ? "Pause" : "Activate"} ${template.name}`}
                       onClick={() =>
                         toggleTemplate(
                           template
@@ -981,7 +993,7 @@ const response = isEditing
                       className="delete"
                       onClick={() =>
                         deleteTemplate(
-                          template.id
+                          template
                         )
                       }
                     >
@@ -1375,6 +1387,13 @@ Thank you.`}
 
         </div>
 
+      )}
+
+      {confirmation && (
+        <ConfirmationDialog
+          {...confirmation}
+          onCancel={() => setConfirmation(null)}
+        />
       )}
 
     </div>

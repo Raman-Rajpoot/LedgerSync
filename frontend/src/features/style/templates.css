@@ -387,22 +387,18 @@
 
 .template-preview {
   max-width: 850px;
-
   margin: 8px 0 0;
-
   color: #8b8795;
-
   font-size: 8px;
+  line-height: 1.7;
 
-  line-height: 1.6;
+  /* Preserve paragraph breaks and line breaks from the saved template */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 
-  display: -webkit-box;
-
-  -webkit-line-clamp: 2;
-
-  -webkit-box-orient: vertical;
-
-  overflow: hidden;
+  /* Show the complete template instead of truncating it to two lines */
+  display: block;
+  overflow: visible;
 }
 
 .template-variables {

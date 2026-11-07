@@ -4,6 +4,7 @@ import {
   FiBell,
   FiCheckCircle,
   FiClock,
+  FiEye,
   FiMail,
   FiMessageSquare,
   FiPhone,
@@ -283,6 +284,7 @@ function Reminders() {
                   <th>Channel</th>
                   <th>Status</th>
                   <th>Message</th>
+                  <th>Details</th>
                 </tr>
               </thead>
               <tbody>
@@ -359,6 +361,16 @@ function Reminders() {
                         <span className="reminder-message" title={message}>
                           {message}
                         </span>
+                      </td>
+                      <td>
+                        <Link
+                          to={`/reminder/${reminder.id}`}
+                          className="reminder-view-btn"
+                          aria-label={`View reminder for ${invoice.invoiceNumber || "invoice"}`}
+                          title="View reminder details"
+                        >
+                          <FiEye aria-hidden="true" />
+                        </Link>
                       </td>
                     </tr>
                   );

@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 
 const ai = new GoogleGenAI({
@@ -32,22 +33,24 @@ Original Message:
 ${content}
 
 Rules:
-1. Keep the message professional and polite.
-2. Make it feel naturally personalized.
-3. Do not invent any information.
-4. Do not change the client name.
-5. Do not change the invoice number.
-6. Do not change the amount.
-7. Do not change the due date.
-8. Do not add payment links.
-9. Do not threaten the client.
-10. For SMS, keep it very short.
-11. For WhatsApp, keep it concise and friendly.
-12. For EMAIL, keep it professional and slightly detailed.
-13. Return ONLY valid JSON.
-14. Do not wrap the JSON in markdown.
+1. Keep the message professional, polite, and naturally personalized.
+2. Do not invent information.
+3. Preserve the client name, invoice number, amount, and due date exactly.
+4. Do not add payment links or threats.
+5. For SMS, return one short, concise message without paragraph breaks.
+6. For WhatsApp, keep the message concise and friendly, using line breaks where helpful.
+7. For EMAIL, format the content into separate readable paragraphs:
+   - Greeting
+   - Reminder details
+   - Acknowledgment or next steps
+   - Closing and signature
+8. For EMAIL, separate paragraphs using two newline characters (\\n\\n).
+9. Do not return HTML tags or Markdown formatting.
+10. Do not include literal escaped newline sequences in the output;
+    use actual newline characters in the content string.
+11. Return ONLY valid JSON without Markdown code fences.
 
-Return exactly:
+Return exactly this structure:
 {
   "subject": "personalized subject",
   "content": "personalized message"
@@ -62,16 +65,13 @@ Return exactly:
     const text = response.text?.trim();
 
     if (!text) {
-      return {
-        subject,
-        content,
-      };
+      return { subject, content };
     }
 
     const cleaned = text
-      .replace(/^```json\s*/i, "")
-      .replace(/^```\s*/i, "")
-      .replace(/\s*```$/i, "")
+      .replace(/^```json\\s*/i, "")
+      .replace(/^```\\s*/i, "")
+      .replace(/\\s*```$/i, "")
       .trim();
 
     const result = JSON.parse(cleaned);
@@ -82,10 +82,6 @@ Return exactly:
     };
   } catch (error) {
     console.error("Gemini personalization error:", error);
-
-    return {
-      subject,
-      content,
-    };
+    return { subject, content };
   }
 };

@@ -25,7 +25,9 @@ export function startReminderScheduler() {
     cron.schedule("0 9 * * *", runReminderJob, {
         timezone: "Asia/Kolkata",
     });
-
+    // cron.schedule("* * * * *", runReminderJob, {
+    //     timezone: "Asia/Kolkata",
+    // });
 
 
     cron.schedule("0 12 * * *", runReminderJob, {

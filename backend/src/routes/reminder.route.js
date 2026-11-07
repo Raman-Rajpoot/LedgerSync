@@ -7,6 +7,7 @@ import {
   sendEmail,
   sendSMS,
   sendWhatsApp,
+  updateReminder,
 } from "../controllers/reminder.controller.js";
 
 import authMiddleware from "../middleware/auth.middleware.js";
@@ -37,6 +38,12 @@ router.get(
   "/:id",
   authMiddleware,
   getReminder
+);
+
+router.patch(
+  "/:id",
+  authMiddleware,
+  updateReminder
 );
 
 

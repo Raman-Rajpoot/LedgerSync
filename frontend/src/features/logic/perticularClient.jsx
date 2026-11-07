@@ -17,6 +17,7 @@ import getAllClient from "../../services/client.service";
 import invoiceService from "../../services/invoice.service";
 import reminderService from "../../services/reminder.service";
 import integrationService from "../../services/integration.service";
+import ConfirmationDialog from "../../components/logic/ConfirmationDialog";
 import "../style/perticularClient.css";
 
 function SingleClientCard() {
@@ -35,6 +36,7 @@ function SingleClientCard() {
   const [remindersLoading, setRemindersLoading] = useState(true);
   const [reminderError, setReminderError] = useState("");
   const [mailFrom, setMailFrom] = useState("");
+  const [confirmation, setConfirmation] = useState(null);
 
   useEffect(() => {
     if (!token) return;
@@ -129,30 +131,22 @@ function SingleClientCard() {
      DELETE CLIENT
   ========================================== */
 
-  const handleDelete = async () => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this client?"
-    );
-
-    if (!confirmDelete) return;
-
-    try {
-
-      await getAllClient.deleteClient(id);
-
-      navigate("/clients");
-
-    } catch (err) {
-
-      console.error(
-        "Failed to delete client:",
-        err
-      );
-
-      alert(
-        "Failed to delete client."
-      );
-    }
+  const handleDelete = () => {
+    setConfirmation({
+      title: `Delete ${client?.name || "this client"}?`,
+      message: "This client record will be permanently deleted. This action cannot be undone.",
+      confirmLabel: "Delete client",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await getAllClient.deleteClient(id);
+          navigate("/clients");
+        } catch (err) {
+          console.error("Failed to delete client:", err);
+          alert("Failed to delete client.");
+        }
+      },
+    });
   };
 
 
@@ -716,6 +710,13 @@ function SingleClientCard() {
           </div>
         )}
       </div>
+
+      {confirmation && (
+        <ConfirmationDialog
+          {...confirmation}
+          onCancel={() => setConfirmation(null)}
+        />
+      )}
 
     </div>
   );

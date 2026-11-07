@@ -14,6 +14,7 @@ import {
 } from "react-icons/fi";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
+import ConfirmationDialog from "../../components/logic/ConfirmationDialog";
 import "../style/project.css";
 import projectService from "../../services/project.service";
 
@@ -40,6 +41,7 @@ function Project() {
   const [status, setStatus] = useState("All");
 
   const [showModal, setShowModal] = useState(false);
+  const [confirmation, setConfirmation] = useState(null);
 
   const [editingProject, setEditingProject] =
     useState(null);
@@ -337,54 +339,27 @@ if (response.success) {
   // DELETE PROJECT
   // ==========================================
 
-  const deleteProject = async (
-    projectId
-  ) => {
-
-    const confirmDelete =
-      window.confirm(
-        "Are you sure you want to delete this project?"
-      );
-
-
-    if (!confirmDelete) {
-      return;
-    }
-
-
-    try {
-
-      const response =
-        await projectService.deleteProject(projectId);
-
-
-      if (!response.success) {
-
-        throw new Error(
-          "Failed to delete project"
-        );
-
-      }
-   condsole.log(response);
-
-      setProjects((prev) =>
-        prev.filter(
-          (project) =>
-            project.id !== projectId
-        )
-      );
-
-
-    } catch (err) {
-
-      console.error(err);
-
-      alert(
-        "Unable to delete project."
-      );
-
-    }
-
+  const deleteProject = (project) => {
+    setConfirmation({
+      title: `Delete "${project.name}"?`,
+      message: "This project will be permanently deleted. This action cannot be undone.",
+      confirmLabel: "Delete project",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          const response = await projectService.deleteProject(project.id);
+          if (!response.success) {
+            throw new Error("Failed to delete project");
+          }
+          setProjects((prev) =>
+            prev.filter((item) => item.id !== project.id)
+          );
+        } catch (err) {
+          console.error(err);
+          alert("Unable to delete project.");
+        }
+      },
+    });
   };
 
 
@@ -871,7 +846,7 @@ if (response.success) {
                           className="delete"
                           onClick={() =>
                             deleteProject(
-                              project.id
+                              project
                             )
                           }
                         >
@@ -1299,6 +1274,13 @@ if (response.success) {
 
         </div>
 
+      )}
+
+      {confirmation && (
+        <ConfirmationDialog
+          {...confirmation}
+          onCancel={() => setConfirmation(null)}
+        />
       )}
 
     </div>

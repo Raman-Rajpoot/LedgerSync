@@ -655,7 +655,11 @@ export const getReminder = async (
             include: {
               template: {
                 select: {
+                  name: true,
+                  subject: true,
                   content: true,
+                  channel: true,
+                  stage: true,
                 },
               },
             },
@@ -697,6 +701,100 @@ export const getReminder = async (
     return res.status(500).json({
       success: false,
       message: "Failed to fetch reminder",
+    });
+  }
+};
+
+export const updateReminder = async (req, res) => {
+  try {
+    const organizationId = getOrgId(req);
+    const { id } = req.params;
+    const { scheduledAt } = req.body || {};
+
+    if (!organizationId) {
+      return res.status(401).json({
+        success: false,
+        message: "Organization not found",
+      });
+    }
+
+    if (typeof scheduledAt !== "string" || !scheduledAt.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid scheduled date is required.",
+      });
+    }
+
+    const scheduledDate = new Date(scheduledAt);
+    if (Number.isNaN(scheduledDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid scheduled date is required.",
+      });
+    }
+
+    const result = await prisma.reminder.updateMany({
+      where: {
+        id,
+        organizationId,
+        status: "PENDING",
+      },
+      data: {
+        scheduledAt: scheduledDate,
+      },
+    });
+
+    if (!result.count) {
+      const reminder = await prisma.reminder.findFirst({
+        where: { id, organizationId },
+        select: { id: true },
+      });
+
+      return res.status(reminder ? 409 : 404).json({
+        success: false,
+        message: reminder
+          ? "Only pending reminders can be rescheduled."
+          : "Reminder not found.",
+      });
+    }
+
+    const reminder = await prisma.reminder.findFirst({
+      where: { id, organizationId },
+      include: {
+        rule: {
+          include: {
+            template: {
+              select: {
+                name: true,
+                subject: true,
+                content: true,
+                channel: true,
+                stage: true,
+              },
+            },
+          },
+        },
+        invoice: {
+          include: {
+            client: true,
+            payments: true,
+            escalationLogs: {
+              orderBy: { sentAt: "desc" },
+            },
+          },
+        },
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: reminder,
+    });
+  } catch (error) {
+    console.error("UPDATE REMINDER ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update reminder.",
     });
   }
 };

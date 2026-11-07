@@ -10,6 +10,7 @@ import {
   FiCheckCircle,
   FiAlertCircle,
 } from "react-icons/fi";
+import ConfirmationDialog from "../../components/logic/ConfirmationDialog";
 
 import {
   Link,
@@ -35,6 +36,7 @@ function InvoiceDetails() {
 
   const [actionLoading, setActionLoading] =
     useState(false);
+  const [confirmation, setConfirmation] = useState(null);
 
   /* =========================================
      FETCH INVOICE
@@ -90,46 +92,27 @@ function InvoiceDetails() {
       alert("Cannot delete a paid invoice.");
       return;
     }
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to delete this invoice?"
-      );
-
-
-    if (!confirmed) return;
-
-
-    try {
-
-      setActionLoading(true);
-
-
-      const response =
-        await invoiceService.deleteInvoice(id);
-
-
-      if (!response.success) {
-        throw new Error(
-          "Delete failed"
-        );
-      }
-
-
-      navigate("/invoices");
-
-    } catch (err) {
-
-      console.error(err);
-
-      alert(
-        "Failed to delete invoice."
-      );
-
-    } finally {
-
-      setActionLoading(false);
-
-    }
+    setConfirmation({
+      title: "Delete this invoice?",
+      message: "This invoice will be permanently deleted. This action cannot be undone.",
+      confirmLabel: "Delete invoice",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          setActionLoading(true);
+          const response = await invoiceService.deleteInvoice(id);
+          if (!response.success) {
+            throw new Error("Delete failed");
+          }
+          navigate("/invoices");
+        } catch (err) {
+          console.error(err);
+          alert("Failed to delete invoice.");
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
   };
 
 
@@ -827,6 +810,13 @@ function InvoiceDetails() {
 
         </div>
 
+      )}
+
+      {confirmation && (
+        <ConfirmationDialog
+          {...confirmation}
+          onCancel={() => setConfirmation(null)}
+        />
       )}
 
     </div>
